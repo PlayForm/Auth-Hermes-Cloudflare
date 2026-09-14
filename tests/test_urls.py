@@ -28,85 +28,85 @@ API_BASE = "https://api.cloudflare.com/client/v4"
 
 
 class UrlTest(unittest.TestCase):
-	def setUp(self):
-		os.environ.pop(plugin.BASE_URL_ENV, None)
-		self._saved = dict(os.environ)
-		os.environ[plugin.AUTH_ACCOUNT_ENV] = ACCOUNT
+    def setUp(self):
+        os.environ.pop(plugin.BASE_URL_ENV, None)
+        self._saved = dict(os.environ)
+        os.environ[plugin.AUTH_ACCOUNT_ENV] = ACCOUNT
 
+    def tearDown(self):
+        os.environ.clear()
+        os.environ.update(self._saved)
 
-	def tearDown(self):
-		os.environ.clear()
-		os.environ.update(self._saved)
+    def test_inference_base_url_exact(self):
+        self.assertEqual(
+            plugin.inference_base_url(),
+            f"{API_BASE}/accounts/{ACCOUNT}/ai/v1",
+        )
 
-	def test_inference_base_url_exact(self):
-		self.assertEqual(
-			plugin.inference_base_url(),
-			f"{API_BASE}/accounts/{ACCOUNT}/ai/v1",
-		)
+    def test_inference_base_url_contains_account_id(self):
+        url = plugin.inference_base_url()
+        self.assertIn(f"/accounts/{ACCOUNT}/", url)
 
-	def test_inference_base_url_contains_account_id(self):
-		url = plugin.inference_base_url()
-		self.assertIn(f"/accounts/{ACCOUNT}/", url)
+    def test_catalog_url_exact_route(self):
+        self.assertEqual(
+            plugin.catalog_url(),
+            f"{API_BASE}/accounts/{ACCOUNT}/ai/models/search"
+            "?format=openrouter&per_page=1000",
+        )
 
-	def test_catalog_url_exact_route(self):
-		self.assertEqual(
-			plugin.catalog_url(),
-			f"{API_BASE}/accounts/{ACCOUNT}/ai/models/search"
-			"?format=openrouter&per_page=1000",
-		)
+    def test_catalog_uses_models_search_not_openai_models(self):
+        url = plugin.catalog_url()
+        path = url.split("?", 1)[0]
+        self.assertTrue(path.endswith("/ai/models/search"))
+        self.assertFalse(path.endswith("/models"))
 
-	def test_catalog_uses_models_search_not_openai_models(self):
-		url = plugin.catalog_url()
-		path = url.split("?", 1)[0]
-		self.assertTrue(path.endswith("/ai/models/search"))
-		self.assertFalse(path.endswith("/models"))
+    def test_catalog_url_none_without_account(self):
+        os.environ.pop(plugin.AUTH_ACCOUNT_ENV, None)
+        os.environ.pop(plugin.ACCOUNT_ENV, None)
+        self.assertIsNone(plugin.catalog_url())
 
-	def test_catalog_url_none_without_account(self):
-		os.environ.pop(plugin.AUTH_ACCOUNT_ENV, None)
-		os.environ.pop(plugin.ACCOUNT_ENV, None)
-		self.assertIsNone(plugin.catalog_url())
+    def test_inference_url_placeholder_without_account(self):
+        os.environ.pop(plugin.AUTH_ACCOUNT_ENV, None)
+        os.environ.pop(plugin.ACCOUNT_ENV, None)
+        self.assertEqual(
+            plugin.inference_base_url(),
+            f"{API_BASE}/accounts/<ACCOUNT_ID>/ai/v1",
+        )
 
-	def test_inference_url_placeholder_without_account(self):
-		os.environ.pop(plugin.AUTH_ACCOUNT_ENV, None)
-		os.environ.pop(plugin.ACCOUNT_ENV, None)
-		self.assertEqual(
-			plugin.inference_base_url(),
-			f"{API_BASE}/accounts/<ACCOUNT_ID>/ai/v1",
-		)
+    def test_profile_base_url_property_matches(self):
+        self.assertEqual(plugin.cloudflare.base_url, plugin.inference_base_url())
 
-	def test_profile_base_url_property_matches(self):
-		self.assertEqual(plugin.cloudflare.base_url, plugin.inference_base_url())
+    def test_profile_models_url_property_matches(self):
+        self.assertEqual(plugin.cloudflare.models_url, plugin.catalog_url())
 
-	def test_profile_models_url_property_matches(self):
-		self.assertEqual(plugin.cloudflare.models_url, plugin.catalog_url())
+    def test_models_url_empty_without_account(self):
+        os.environ.pop(plugin.AUTH_ACCOUNT_ENV, None)
+        os.environ.pop(plugin.ACCOUNT_ENV, None)
+        self.assertEqual(plugin.cloudflare.models_url, "")
 
-	def test_models_url_empty_without_account(self):
-		os.environ.pop(plugin.AUTH_ACCOUNT_ENV, None)
-		os.environ.pop(plugin.ACCOUNT_ENV, None)
-		self.assertEqual(plugin.cloudflare.models_url, "")
+    def test_base_url_env_var_declared_for_wizard(self):
+        # The base URL is derived from the account ID. BASE_URL_ENV is declared
+        # in env_vars with a `*_BASE_URL` suffix so stock Hermes
+        # (_register_plugin_provider) maps it to ProviderConfig.base_url_env_var
+        # and the setup wizard pre-fills its Base URL prompt from it - the user
+        # never types a base URL (feedback 06).
+        self.assertEqual(plugin.BASE_URL_ENV, "CLOUDFLARE_BASE_URL")
+        self.assertIn(plugin.BASE_URL_ENV, plugin.cloudflare.env_vars)
+        self.assertTrue(plugin.BASE_URL_ENV.endswith("_BASE_URL"))
 
-	def test_base_url_env_var_declared_for_wizard(self):
-		# The base URL is derived from the account ID. BASE_URL_ENV is declared
-		# in env_vars with a `*_BASE_URL` suffix so stock Hermes
-		# (_register_plugin_provider) maps it to ProviderConfig.base_url_env_var
-		# and the setup wizard pre-fills its Base URL prompt from it - the user
-		# never types a base URL (feedback 06).
-		self.assertEqual(plugin.BASE_URL_ENV, "CLOUDFLARE_BASE_URL")
-		self.assertIn(plugin.BASE_URL_ENV, plugin.cloudflare.env_vars)
-		self.assertTrue(plugin.BASE_URL_ENV.endswith("_BASE_URL"))
+    def test_inference_base_url_honors_base_url_env_override(self):
+        os.environ[plugin.BASE_URL_ENV] = "https://custom.example/ai/v1"
+        self.addCleanup(os.environ.pop, plugin.BASE_URL_ENV, None)
+        self.assertEqual(plugin.inference_base_url(), "https://custom.example/ai/v1")
 
-	def test_inference_base_url_honors_base_url_env_override(self):
-		os.environ[plugin.BASE_URL_ENV] = "https://custom.example/ai/v1"
-		self.addCleanup(os.environ.pop, plugin.BASE_URL_ENV, None)
-		self.assertEqual(plugin.inference_base_url(), "https://custom.example/ai/v1")
+    def test_inference_base_url_override_strips_trailing_slash(self):
+        os.environ[plugin.BASE_URL_ENV] = "https://custom.example/ai/v1/"
+        self.addCleanup(os.environ.pop, plugin.BASE_URL_ENV, None)
+        self.assertEqual(plugin.inference_base_url(), "https://custom.example/ai/v1")
 
-	def test_inference_base_url_override_strips_trailing_slash(self):
-		os.environ[plugin.BASE_URL_ENV] = "https://custom.example/ai/v1/"
-		self.addCleanup(os.environ.pop, plugin.BASE_URL_ENV, None)
-		self.assertEqual(plugin.inference_base_url(), "https://custom.example/ai/v1")
-	def test_base_url_uses_client_v4_prefix(self):
-		self.assertTrue(plugin.inference_base_url().startswith(API_BASE))
+    def test_base_url_uses_client_v4_prefix(self):
+        self.assertTrue(plugin.inference_base_url().startswith(API_BASE))
 
 
 if __name__ == "__main__":
-	unittest.main(verbosity=2)
+    unittest.main(verbosity=2)

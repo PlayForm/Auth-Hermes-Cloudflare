@@ -1238,9 +1238,7 @@ def _persist_env_value(key: str, value: str) -> bool:
             else []
         )
         line = f"{key}={value}"
-        idx = next(
-            (i for i, l in enumerate(lines) if l.startswith(f"{key}=")), None
-        )
+        idx = next((i for i, l in enumerate(lines) if l.startswith(f"{key}=")), None)
         if idx is not None:
             lines[idx] = line
         else:

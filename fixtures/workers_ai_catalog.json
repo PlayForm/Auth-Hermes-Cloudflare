@@ -1,120 +1,104 @@
 {
-	"data": [
-		{
-			"id": "@cf/deepseek-ai/deepseek-v4-flash-0731",
-			"name": "DeepSeek: V4 Flash (0731)",
-			"description": "Cloudflare-hosted DeepSeek V4 Flash 0731 - fast chat model with function calling and reasoning. Development default for the auth-cloudflare provider.",
-			"pricing": {
-				"prompt": "0.44",
-				"completion": "1.32",
-				"request": "0",
-				"image": "0",
-				"web_search": "0",
-				"internal_reasoning": "0"
-			},
-			"context_length": 1310720,
-			"architecture": {
-				"input_modalities": [
-					"text"
-				],
-				"output_modalities": [
-					"text"
-				]
-			},
-			"top_provider": {
-				"max_completion_tokens": 131072,
-				"is_moderated": false
-			},
-			"permission": {
-				"type": "public"
-			}
-		},
-		{
-			"id": "@cf/zai-org/glm-5.3-flash",
-			"name": "Zhipu AI: GLM 5.3 Flash",
-			"description": "Experimental chat model - observed delivery failures; never the provider default.",
-			"pricing": {
-				"prompt": "0.21",
-				"completion": "0.63",
-				"request": "0",
-				"image": "0",
-				"web_search": "0",
-				"internal_reasoning": "0"
-			},
-			"context_length": 131072,
-			"architecture": {
-				"input_modalities": [
-					"text"
-				],
-				"output_modalities": [
-					"text"
-				]
-			},
-			"top_provider": {
-				"max_completion_tokens": 131072,
-				"is_moderated": false
-			},
-			"permission": {
-				"type": "public"
-			}
-		},
-		{
-			"id": "@cf/meta/llama-guard-3-8b",
-			"name": "Meta: Llama Guard 3 8B",
-			"description": "Safety classifier model - hidden from the primary agent picker.",
-			"pricing": {
-				"prompt": "0.18",
-				"completion": "0.18",
-				"request": "0",
-				"image": "0",
-				"web_search": "0",
-				"internal_reasoning": "0"
-			},
-			"context_length": 8192,
-			"architecture": {
-				"input_modalities": [
-					"text"
-				],
-				"output_modalities": [
-					"text"
-				]
-			},
-			"top_provider": {
-				"max_completion_tokens": 4096,
-				"is_moderated": false
-			},
-			"permission": {
-				"type": "public"
-			}
-		},
-		{
-			"id": "@cf/moonshotai/kimi-k2.7-code",
-			"name": "Moonshot AI: Kimi K2.7 Code",
-			"description": "Premium coding chat model with tool calling.",
-			"pricing": {
-				"prompt": "0.88",
-				"completion": "2.64",
-				"request": "0",
-				"image": "0",
-				"web_search": "0",
-				"internal_reasoning": "0"
-			},
-			"context_length": 262144,
-			"architecture": {
-				"input_modalities": [
-					"text"
-				],
-				"output_modalities": [
-					"text"
-				]
-			},
-			"top_provider": {
-				"max_completion_tokens": 131072,
-				"is_moderated": false
-			},
-			"permission": {
-				"type": "public"
-			}
-		}
-	]
+  "data": [
+    {
+      "id": "@cf/deepseek-ai/deepseek-v4-flash-0731",
+      "name": "DeepSeek: V4 Flash (0731)",
+      "description": "Cloudflare-hosted DeepSeek V4 Flash 0731 - fast chat model with function calling and reasoning. Development default for the auth-cloudflare provider.",
+      "pricing": {
+        "prompt": "0.44",
+        "completion": "1.32",
+        "request": "0",
+        "image": "0",
+        "web_search": "0",
+        "internal_reasoning": "0"
+      },
+      "context_length": 1310720,
+      "architecture": {
+        "input_modalities": ["text"],
+        "output_modalities": ["text"]
+      },
+      "top_provider": {
+        "max_completion_tokens": 131072,
+        "is_moderated": false
+      },
+      "permission": {
+        "type": "public"
+      }
+    },
+    {
+      "id": "@cf/zai-org/glm-5.3-flash",
+      "name": "Zhipu AI: GLM 5.3 Flash",
+      "description": "Experimental chat model - observed delivery failures; never the provider default.",
+      "pricing": {
+        "prompt": "0.21",
+        "completion": "0.63",
+        "request": "0",
+        "image": "0",
+        "web_search": "0",
+        "internal_reasoning": "0"
+      },
+      "context_length": 131072,
+      "architecture": {
+        "input_modalities": ["text"],
+        "output_modalities": ["text"]
+      },
+      "top_provider": {
+        "max_completion_tokens": 131072,
+        "is_moderated": false
+      },
+      "permission": {
+        "type": "public"
+      }
+    },
+    {
+      "id": "@cf/meta/llama-guard-3-8b",
+      "name": "Meta: Llama Guard 3 8B",
+      "description": "Safety classifier model - hidden from the primary agent picker.",
+      "pricing": {
+        "prompt": "0.18",
+        "completion": "0.18",
+        "request": "0",
+        "image": "0",
+        "web_search": "0",
+        "internal_reasoning": "0"
+      },
+      "context_length": 8192,
+      "architecture": {
+        "input_modalities": ["text"],
+        "output_modalities": ["text"]
+      },
+      "top_provider": {
+        "max_completion_tokens": 4096,
+        "is_moderated": false
+      },
+      "permission": {
+        "type": "public"
+      }
+    },
+    {
+      "id": "@cf/moonshotai/kimi-k2.7-code",
+      "name": "Moonshot AI: Kimi K2.7 Code",
+      "description": "Premium coding chat model with tool calling.",
+      "pricing": {
+        "prompt": "0.88",
+        "completion": "2.64",
+        "request": "0",
+        "image": "0",
+        "web_search": "0",
+        "internal_reasoning": "0"
+      },
+      "context_length": 262144,
+      "architecture": {
+        "input_modalities": ["text"],
+        "output_modalities": ["text"]
+      },
+      "top_provider": {
+        "max_completion_tokens": 131072,
+        "is_moderated": false
+      },
+      "permission": {
+        "type": "public"
+      }
+    }
+  ]
 }

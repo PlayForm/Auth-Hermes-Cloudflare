@@ -64,15 +64,15 @@ The plugin also adds to your Hermes config:
 ```yaml
 # Added automatically on enable
 plugins:
-  enabled:
-    - auth-hermes-cloudflare
+    enabled:
+        - auth-hermes-cloudflare
 
 # Provider block (manual or via the setup wizard)
 providers:
-  cloudflare:
-    api_key_env: CLOUDFLARE_API_TOKEN
-    base_url: https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/ai/v1
-    api_mode: chat_completions
+    cloudflare:
+        api_key_env: CLOUDFLARE_API_TOKEN
+        base_url: https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/ai/v1
+        api_mode: chat_completions
 ```
 
 No proxy processes are launched - the provider runs in-process.
@@ -121,18 +121,18 @@ discovery runs before the profile `.env` is loaded.
 
 ## Provider 🛠️
 
-| Item | Value |
-| :--- | :---- |
-| Provider name | `auth-cloudflare-workers-ai` |
-| Aliases | `auth-cloudflare`, `cloudflare`, `cloudflare-workers-ai`, `workers-ai`, `cf-workers-ai`, `cf` |
-| Display name | `Auth Cloudflare Workers AI` |
-| API mode | `chat_completions` |
-| Auth type | `api_key` |
-| Signup | [dash.cloudflare.com/profile/api-tokens](https://dash.cloudflare.com/profile/api-tokens) |
-| Health check | disabled - Cloudflare has no `/models` endpoint; token verify is used instead |
-| Fixed base URL | yes - derived from the account ID, the wizard never prompts |
-| Default model | `@cf/deepseek-ai/deepseek-v4-flash-0731` |
-| Fallback models | 22 curated chat models compiled into the profile |
+| Item            | Value                                                                                         |
+| :-------------- | :-------------------------------------------------------------------------------------------- |
+| Provider name   | `auth-cloudflare-workers-ai`                                                                  |
+| Aliases         | `auth-cloudflare`, `cloudflare`, `cloudflare-workers-ai`, `workers-ai`, `cf-workers-ai`, `cf` |
+| Display name    | `Auth Cloudflare Workers AI`                                                                  |
+| API mode        | `chat_completions`                                                                            |
+| Auth type       | `api_key`                                                                                     |
+| Signup          | [dash.cloudflare.com/profile/api-tokens](https://dash.cloudflare.com/profile/api-tokens)      |
+| Health check    | disabled - Cloudflare has no `/models` endpoint; token verify is used instead                 |
+| Fixed base URL  | yes - derived from the account ID, the wizard never prompts                                   |
+| Default model   | `@cf/deepseek-ai/deepseek-v4-flash-0731`                                                      |
+| Fallback models | 22 curated chat models compiled into the profile                                              |
 
 ---
 
@@ -142,10 +142,10 @@ Two environment variables drive everything. The `AUTH_CLOUDFLARE_*` names
 are canonical; the `CLOUDFLARE_*` names are the legacy Hermes-compatible
 aliases - the Rust core owns the resolution precedence.
 
-| Variable | Role |
-| :------- | :--- |
-| `CLOUDFLARE_ACCOUNT_ID` / `AUTH_CLOUDFLARE_ACCOUNT_ID` | account ID - operational metadata, not a secret |
-| `CLOUDFLARE_API_TOKEN` / `AUTH_CLOUDFLARE_API_TOKEN` | API token - a secret, only ever sent as a `Bearer` header |
+| Variable                                               | Role                                                      |
+| :----------------------------------------------------- | :-------------------------------------------------------- |
+| `CLOUDFLARE_ACCOUNT_ID` / `AUTH_CLOUDFLARE_ACCOUNT_ID` | account ID - operational metadata, not a secret           |
+| `CLOUDFLARE_API_TOKEN` / `AUTH_CLOUDFLARE_API_TOKEN`   | API token - a secret, only ever sent as a `Bearer` header |
 
 ```bash
 export CLOUDFLARE_ACCOUNT_ID="<your account id>"

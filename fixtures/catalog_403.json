@@ -1,10 +1,10 @@
 {
-	"success": false,
-	"errors": [
-		{
-			"code": 10000,
-			"message": "Authentication error - the API token lacks Workers AI permissions for this account."
-		}
-	],
-	"messages": []
+  "success": false,
+  "errors": [
+    {
+      "code": 10000,
+      "message": "Authentication error - the API token lacks Workers AI permissions for this account."
+    }
+  ],
+  "messages": []
 }
