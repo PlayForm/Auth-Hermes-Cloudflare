@@ -1,6 +1,6 @@
 {
 	"name": "auth-cloudflare",
-	"package_version": "0.0.1",
+	"package_version": "0.0.2",
 	"protocol_version": 1,
 	"catalog_schema_versions": [
 		1
