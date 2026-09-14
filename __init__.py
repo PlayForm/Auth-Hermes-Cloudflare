@@ -31,7 +31,7 @@ is authoritative, and without it ``fetch_models`` returns the static
 ``FALLBACK_MODELS`` list - the Rust binary owns live fetching, so the plugin
 never performs direct in-process HTTP catalog discovery.
 
-Hermes-native diagnostics (feedback 01 section 5 / feedback 06, binding):
+Hermes-native diagnostics:
 ``cloudflare_doctor()``, ``cloudflare_setup()``,
 ``cloudflare_catalog_refresh()``, ``cloudflare_catalog_export()``,
 ``cloudflare_model_inspect()`` plus the
@@ -86,7 +86,7 @@ AUTH_ACCOUNT_ENV = "AUTH_CLOUDFLARE_ACCOUNT_ID"
 BASE_URL_ENV = "CLOUDFLARE_BASE_URL"
 DEFAULT_MODEL = "@cf/deepseek-ai/deepseek-v4-flash-0731"
 
-# Model policy (feedback 06, binding): the plugin's single policy record.
+# Model policy: the plugin's single policy record.
 # Status priority: recommended < available < experimental < hidden. `rank`
 # orders models within a status; `default` marks the sole development
 # default; hidden models (e.g. safety classifiers) are never primary-agent
@@ -122,7 +122,7 @@ MODEL_POLICY: dict[str, dict[str, object]] = {
     },
 }
 
-# Narrow allow-list for the primary agent picker (feedback 06, binding):
+# Narrow allow-list for the primary agent picker:
 # only these models lead the picker, in policy rank order. Any other
 # live-discovered chat-like model still appears, but only in an advanced
 # section after every allow-listed model.
@@ -138,7 +138,7 @@ PRIMARY_AGENT_MODELS: tuple[str, ...] = (
     "@cf/zai-org/glm-5.3-flash",
 )
 
-# Executable bridge (feedback 04/05/06): the auth-cloudflare CLI owns catalog
+# Executable bridge: the auth-cloudflare CLI owns catalog
 # and policy; the plugin only discovers it, handshakes, and consumes JSON.
 # Discovery NEVER downloads at import - downloading is the installer's job
 # (download.sh) and happens only when Hermes activates the provider.
@@ -192,7 +192,7 @@ BINARY_VERSION = _read_binary_version()
 # rank order (DeepSeek V4 Flash = default, DeepSeek V4 Pro, Kimi K2.7 Code),
 # then the remaining PRIMARY_AGENT_MODELS allow-list, then the other
 # chat-capable models. GLM-5.3 Flash stays available but experimental and
-# non-default until conformance thresholds are met (feedback 01/02/06).
+# non-default until conformance thresholds are met.
 FALLBACK_MODELS: tuple[str, ...] = (
     # Policy-recommended, rank order (10/20/30)
     "@cf/deepseek-ai/deepseek-v4-flash-0731",
@@ -496,7 +496,7 @@ def _fetch_models_via_binary(bin_path: str, timeout: float = 15.0) -> list[str] 
     return [mid for _, _, mid in eligible] or None
 
 
-# ── Hermes-native diagnostics (feedback 01 §5 / feedback 06) ─────────────────
+# ── Hermes-native diagnostics ─────────────────────────
 # Every command delegates to the auth-cloudflare binary when it is present and
 # compatible; Python-side fallbacks are token-redacting and only cover doctor
 # / model inspect (catalog refresh + export fail closed without the binary).
@@ -851,7 +851,7 @@ CLI_COMMANDS: dict[str, object] = {
 def cloudflare_command(cmd: str, **kwargs) -> dict:
     """Route a diagnostic command string to ``CLI_COMMANDS``.
 
-    Accepted surface (feedback 01 §5): ``doctor``, ``setup``,
+    Accepted surface: ``doctor``, ``setup``,
     ``catalog refresh``, ``catalog export <yaml|markdown>``,
     ``model inspect <model-id>``.
     Unknown or malformed commands return a usage error dict (exit_code 2) -
@@ -1111,7 +1111,7 @@ class CloudflareProfile(ProviderProfile):
 
 
 def validate_setup() -> dict:
-    """Six-step setup validation (feedback 01 section 3, binding).
+    """Six-step setup validation.
 
     Order: (1) account_id present + valid 32-hex shape, (2) api_token
     present (its value is NEVER printed), (3) catalog discovery succeeds,
@@ -1195,7 +1195,7 @@ def validate_setup() -> dict:
     )
 
     # 6. Optional explicit test inference - SKIPPED by default: a normal
-    #    setup run must never send a paid inference request (feedback 01).
+    #    setup run must never send a paid inference request.
     steps.append(
         {
             "step": "test_inference",
@@ -1345,6 +1345,6 @@ if hasattr(ProviderProfile, "fixed_base_url"):
 
 register_provider(cloudflare)
 
-# Hermes-native diagnostics CLI wiring (feedback 01 §5): guarded, idempotent,
+# Hermes-native diagnostics CLI wiring: guarded, idempotent,
 # and a no-op outside the Hermes CLI runtime - see _try_register_hermes_cli_command.
 _try_register_hermes_cli_command()

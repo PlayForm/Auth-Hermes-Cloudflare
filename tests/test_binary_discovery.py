@@ -1,4 +1,4 @@
-"""Binary discovery tests (feedback 04/05/06, binding).
+"""Binary discovery tests.
 
 Contract under test:
 
@@ -10,7 +10,7 @@ Contract under test:
 - Importing the plugin module performs no network I/O whatsoever.
 
 The discovery function below is deliberately test-local (the plugin's
-``__init__.py`` is not modified): it mirrors the feedback-04 reference
+``__init__.py`` is not modified): it mirrors the reference
 implementation so the order is pinned by tests until the real locator lands.
 """
 
@@ -42,7 +42,7 @@ def locate_auth_cloudflare_binary(
     cache_dir=None,
     download=None,
 ):
-    """Mirror of the feedback-04 discovery order (test-local helper).
+    """Mirror of the discovery order (test-local helper).
 
     Order: AUTH_CLOUDFLARE_BIN > PATH > ~/.hermes/bin > plugin bin > cache.
     Returns the first executable candidate or None. ``download`` is accepted

@@ -1,4 +1,4 @@
-"""Environment resolution tests (feedback 05/06, binding).
+"""Environment resolution tests.
 
 Contract under test:
 

@@ -1,4 +1,4 @@
-"""Token redaction tests (feedback 05/06, binding).
+"""Token redaction tests.
 
 Contract under test: the API token never appears in ``repr``/``str`` of the
 profile or in the catalog-fetch result/log path. ``fetch_models`` is

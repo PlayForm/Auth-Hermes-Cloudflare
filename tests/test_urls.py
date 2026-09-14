@@ -1,4 +1,4 @@
-"""URL construction tests (feedback 05/06, binding).
+"""URL construction tests.
 
 Contract under test:
 
@@ -89,7 +89,7 @@ class UrlTest(unittest.TestCase):
         # in env_vars with a `*_BASE_URL` suffix so stock Hermes
         # (_register_plugin_provider) maps it to ProviderConfig.base_url_env_var
         # and the setup wizard pre-fills its Base URL prompt from it - the user
-        # never types a base URL (feedback 06).
+        # never types a base URL.
         self.assertEqual(plugin.BASE_URL_ENV, "CLOUDFLARE_BASE_URL")
         self.assertIn(plugin.BASE_URL_ENV, plugin.cloudflare.env_vars)
         self.assertTrue(plugin.BASE_URL_ENV.endswith("_BASE_URL"))

@@ -1,11 +1,11 @@
-"""Version compatibility tests (feedback 05/06, binding).
+"""Version compatibility tests.
 
 Contract under test:
 
 - ``BINARY_VERSION`` and ``PROTOCOL_VERSION`` files exist and parse.
 - The protocol version is an integer >= 1; the binary version is semver.
 - ``fixtures/auth_cloudflare_version.json`` matches the documented
-  ``auth-cloudflare version --format json`` shape (feedback 06).
+  ``auth-cloudflare version --format json`` shape.
 - An incompatible (lower) protocol reported by the binary blocks binary use;
   equal or higher protocol versions are accepted.
 - ``plugin.yaml`` version matches ``BINARY_VERSION`` and declares
@@ -55,7 +55,7 @@ def _write_fake_binary(path: Path, version_info: dict) -> Path:
 
 
 def is_protocol_compatible(binary_protocol: int, required: int) -> bool:
-    """Test-local mirror of the plugin/binary handshake (feedback 04/06).
+    """Test-local mirror of the plugin/binary handshake.
 
     The binary's reported protocol must be >= the protocol the plugin was
     built against; otherwise the binary is rejected.

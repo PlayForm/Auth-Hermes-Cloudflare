@@ -1,4 +1,4 @@
-"""Docs-claims tests (feedback 05 naming + executable-based behavior).
+"""Docs-claims tests (naming + executable-based behavior).
 
 Asserts the shipped docs - the plugin ``README.md``, ``plugin.yaml``, and the
 repo root ``README.md`` - no longer claim a standalone ``Cloudflare AI``

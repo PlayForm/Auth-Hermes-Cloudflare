@@ -1,4 +1,4 @@
-"""Catalog fallback tests (feedback 05/06, binding).
+"""Catalog fallback tests.
 
 Contract under test:
 
