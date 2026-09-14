@@ -13,15 +13,16 @@ The account ID is injected from the environment (``CLOUDFLARE_ACCOUNT_ID`` /
 ``AUTH_CLOUDFLARE_API_TOKEN``) is a secret and is only ever sent as a Bearer
 header - never logged, never echoed.
 
-The base URL is DERIVED from the account ID. The profile declares the
-``CLOUDFLARE_BASE_URL`` env var in ``env_vars``: stock hermes-agent maps any
-``*_BASE_URL``-suffixed var to ``ProviderConfig.base_url_env_var``, so the
-setup wizard pre-fills its Base URL prompt with the account-derived URL and
-an empty Enter keeps it - the user never types a Base URL. A legacy
-``fixed_base_url`` flag is set post-construction only on cores that still
-declare it (a ``hermes update`` wipes patched cores, so the plugin must
-import cleanly on stock core).
-
+The base URL is DERIVED from the account ID. The profile declares
+``CLOUDFLARE_BASE_URL`` (a ``*_BASE_URL`` env var) in ``env_vars``, so stock
+Hermes ``hermes_cli/auth._register_plugin_provider`` maps it to the
+``ProviderConfig.base_url_env_var`` slot; ``hermes cloudflare setup`` writes
+the derived URL into ``~/.hermes/.env`` under that name, and the stock wizard
+(``_model_flow_api_key_provider``) reads it back as the pre-filled Base URL
+default - the user never types a Base URL. A legacy ``fixed_base_url`` flag
+is set post-construction only on cores that still declare it (a ``hermes
+update`` wipes patched cores, so the plugin must import cleanly on stock
+core).
 This provider is registered as ``auth-cloudflare-workers-ai`` with the
 display name **Auth Cloudflare Workers AI**. Live catalog discovery is owned
 by the ``auth-cloudflare`` executable through the JSON CLI protocol
@@ -31,8 +32,9 @@ is authoritative, and without it ``fetch_models`` returns the static
 never performs direct in-process HTTP catalog discovery.
 
 Hermes-native diagnostics (feedback 01 section 5 / feedback 06, binding):
-``cloudflare_doctor()``, ``cloudflare_catalog_refresh()``,
-``cloudflare_catalog_export()``, ``cloudflare_model_inspect()`` plus the
+``cloudflare_doctor()``, ``cloudflare_setup()``,
+``cloudflare_catalog_refresh()``, ``cloudflare_catalog_export()``,
+``cloudflare_model_inspect()`` plus the
 ``CLI_COMMANDS`` dispatch table and ``cloudflare_command()`` router. Each
 command delegates to the ``auth-cloudflare`` executable (``doctor --format
 json``, ``catalog refresh --format json``, ``catalog export <fmt>``,
@@ -76,10 +78,11 @@ TOKEN_ENV = "CLOUDFLARE_API_TOKEN"
 ACCOUNT_ENV = "CLOUDFLARE_ACCOUNT_ID"
 AUTH_TOKEN_ENV = "AUTH_CLOUDFLARE_API_TOKEN"
 AUTH_ACCOUNT_ENV = "AUTH_CLOUDFLARE_ACCOUNT_ID"
-# Base URL env var (HANDOFF 2026-09-11): stock hermes-agent maps any
-# ``*_BASE_URL``-suffixed name in the profile's env_vars to
-# ProviderConfig.base_url_env_var, so the setup wizard pre-fills its Base
-# URL prompt from this var and persists an override here on explicit entry.
+# The `*_BASE_URL` suffix is what stock Hermes
+# (hermes_cli/auth._register_plugin_provider) uses to detect the base-URL env
+# var and map it to ProviderConfig.base_url_env_var, which the setup wizard
+# then pre-fills. 'hermes cloudflare setup' writes the account-derived URL
+# here - never the user.
 BASE_URL_ENV = "CLOUDFLARE_BASE_URL"
 DEFAULT_MODEL = "@cf/deepseek-ai/deepseek-v4-flash-0731"
 
@@ -290,12 +293,14 @@ def api_token() -> str | None:
 def inference_base_url() -> str:
     """OpenAI-compatible inference base URL for the configured account.
 
-    ``CLOUDFLARE_BASE_URL`` wins when set (the setup wizard persists an
-    override there); otherwise the URL is derived from the account ID.
+    Prefers an explicit ``CLOUDFLARE_BASE_URL`` override (the value
+    ``hermes cloudflare setup`` writes to ``~/.hermes/.env``; also read by
+    stock Hermes' ``_provider_env_base_url`` at runtime), then derives from
+    the account ID.
     """
-    override = _env(BASE_URL_ENV)
+    override = os.getenv(BASE_URL_ENV, "").strip()
     if override:
-        return override
+        return override.rstrip("/")
     return f"{API_BASE}/accounts/{account_id() or '<ACCOUNT_ID>'}/ai/v1"
 
 
@@ -679,7 +684,9 @@ def cloudflare_doctor(binary: str | None = None) -> dict:
         "api_token": {"configured": bool(token), "value_redacted": True},
         "endpoint": {
             "base_url": (
-                f"{API_BASE}/accounts/{_redact_account_id(aid)}/ai/v1" if aid else None
+                inference_base_url().replace(aid, _redact_account_id(aid))
+                if aid
+                else None
             )
         },
         "catalog_cache": {"present": False},
@@ -831,6 +838,10 @@ def cloudflare_model_inspect(model_id: str, binary: str | None = None) -> dict:
 
 CLI_COMMANDS: dict[str, object] = {
     "doctor": cloudflare_doctor,
+    # NOTE: "setup" is intentionally NOT in this table - cloudflare_setup is
+    # defined later in the module (after validate_setup), so referencing it
+    # here would raise NameError at import. The cloudflare_command() router
+    # and the argparse handler dispatch "setup" at call time instead.
     "catalog refresh": cloudflare_catalog_refresh,
     "catalog export": cloudflare_catalog_export,
     "model inspect": cloudflare_model_inspect,
@@ -840,8 +851,9 @@ CLI_COMMANDS: dict[str, object] = {
 def cloudflare_command(cmd: str, **kwargs) -> dict:
     """Route a diagnostic command string to ``CLI_COMMANDS``.
 
-    Accepted surface (feedback 01 §5): ``doctor``, ``catalog refresh``,
-    ``catalog export <yaml|markdown>``, ``model inspect <model-id>``.
+    Accepted surface (feedback 01 §5): ``doctor``, ``setup``,
+    ``catalog refresh``, ``catalog export <yaml|markdown>``,
+    ``model inspect <model-id>``.
     Unknown or malformed commands return a usage error dict (exit_code 2) -
     never raise. Extra keyword arguments (e.g. ``binary=``) pass through to
     the target command.
@@ -850,13 +862,15 @@ def cloudflare_command(cmd: str, **kwargs) -> dict:
     if not parts:
         return {
             "status": "error",
-            "error": "usage: cloudflare doctor | catalog refresh | "
+            "error": "usage: cloudflare doctor | setup | catalog refresh | "
             "catalog export <yaml|markdown> | model inspect <model-id>",
             "exit_code": 2,
         }
     head = parts[0].lower()
     if head == "doctor":
         return cloudflare_doctor(**kwargs)
+    if head == "setup":
+        return cloudflare_setup(**kwargs)
     if head == "catalog":
         if len(parts) < 2:
             return {
@@ -921,6 +935,10 @@ def _cloudflare_cli_doctor(args) -> int:  # noqa: ARG001 - argparse namespace
     return _cloudflare_cli_emit(cloudflare_doctor())
 
 
+def _cloudflare_cli_setup(args) -> int:  # noqa: ARG001 - argparse namespace
+    return _cloudflare_cli_emit(cloudflare_setup())
+
+
 def _cloudflare_cli_catalog_refresh(args) -> int:  # noqa: ARG001
     return _cloudflare_cli_emit(cloudflare_catalog_refresh())
 
@@ -940,17 +958,17 @@ def _cloudflare_cli_model_inspect(args) -> int:
 def _cloudflare_cli_bare(args) -> int:  # noqa: ARG001
     print("Auth Cloudflare Workers AI diagnostics")
     print(
-        "usage: hermes cloudflare doctor | catalog refresh | "
+        "usage: hermes cloudflare doctor | setup | catalog refresh | "
         "catalog export {yaml,markdown} | model inspect <model-id>"
     )
     return 0
 
 
 def _build_cloudflare_cli_parser(subparser) -> None:
-    """Build the ``hermes cloudflare`` argparse tree (doctor/catalog/model)."""
+    """Build the ``hermes cloudflare`` argparse tree (doctor/setup/catalog/model)."""
     sub = subparser.add_subparsers(
         dest="cloudflare_cmd",
-        metavar="{doctor,catalog,model}",
+        metavar="{doctor,setup,catalog,model}",
         help="Auth Cloudflare Workers AI diagnostics",
     )
 
@@ -958,6 +976,13 @@ def _build_cloudflare_cli_parser(subparser) -> None:
         "doctor", help="Provider/environment diagnostic report (JSON)"
     )
     p_doctor.set_defaults(func=_cloudflare_cli_doctor)
+
+    p_setup = sub.add_parser(
+        "setup",
+        help="Write the account-derived base URL to ~/.hermes/.env "
+        "(CLOUDFLARE_BASE_URL) and validate setup",
+    )
+    p_setup.set_defaults(func=_cloudflare_cli_setup)
 
     p_catalog = sub.add_parser(
         "catalog", help="Catalog operations: refresh (live) or export (yaml|markdown)"
@@ -1189,6 +1214,93 @@ def validate_setup() -> dict:
     return {"overall": overall, "steps": steps}
 
 
+def _persist_env_value(key: str, value: str) -> bool:
+    """Persist ``key=value`` to ``~/.hermes/.env``; True when written.
+
+    Prefers stock Hermes ``hermes_cli.config.save_env_value`` (idempotent,
+    validates the var name, publishes to ``os.environ``); falls back to a
+    direct file edit in bare-provider contexts where ``hermes_cli`` is not
+    importable. Never prints or echoes the value beyond the caller's own
+    reporting.
+    """
+    try:
+        from hermes_cli.config import save_env_value
+
+        save_env_value(key, value)
+        return True
+    except Exception:
+        pass
+    env_path = Path.home() / ".hermes" / ".env"
+    try:
+        lines = (
+            env_path.read_text(encoding="utf-8").splitlines()
+            if env_path.exists()
+            else []
+        )
+        line = f"{key}={value}"
+        idx = next(
+            (i for i, l in enumerate(lines) if l.startswith(f"{key}=")), None
+        )
+        if idx is not None:
+            lines[idx] = line
+        else:
+            lines.append(line)
+        env_path.parent.mkdir(parents=True, exist_ok=True)
+        env_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+        return True
+    except Exception:
+        return False
+
+
+def cloudflare_setup() -> dict:
+    """One-command setup: persist the derived base URL to ``~/.hermes/.env``.
+
+    Stock Hermes' wizard (``hermes_cli/model_setup_flows._model_flow_api_key_provider``)
+    pre-fills its Base URL prompt from ``ProviderConfig.base_url_env_var`` -
+    the env var the profile declares via ``BASE_URL_ENV`` - so writing the
+    URL derived from ``CLOUDFLARE_ACCOUNT_ID`` there means the user never
+    types a Base URL. Also publishes it to ``os.environ`` for the current
+    process and finishes with a ``validate_setup()`` summary. No credentials
+    are printed; the account id is redacted like ``doctor``.
+    """
+    aid = account_id()
+    if not aid:
+        return {
+            "status": "error",
+            "error": (
+                "CLOUDFLARE_ACCOUNT_ID is not configured - add it to "
+                "~/.hermes/.env and re-run (the API token belongs there too)"
+            ),
+            "exit_code": 1,
+        }
+    if not api_token():
+        return {
+            "status": "error",
+            "error": (
+                "CLOUDFLARE_API_TOKEN is not configured - add it to "
+                "~/.hermes/.env and re-run"
+            ),
+            "exit_code": 1,
+        }
+    url = inference_base_url()
+    written = _persist_env_value(BASE_URL_ENV, url)
+    os.environ[BASE_URL_ENV] = url
+    if not written:
+        return {
+            "status": "error",
+            "error": f"could not persist {BASE_URL_ENV} to ~/.hermes/.env",
+            "exit_code": 1,
+        }
+    return {
+        "status": "ok",
+        "base_url_env": BASE_URL_ENV,
+        "base_url": url,
+        "account_id": _redact_account_id(aid),
+        "persisted": written,
+        "setup": validate_setup(),
+    }
+
+
 # Module-level instance + registration - the exact contract every bundled
 # provider follows (import side effect: profile joins the registry, so
 # list_providers()/the model picker see it immediately). URLs are LAZY (see
@@ -1217,18 +1329,19 @@ cloudflare = CloudflareProfile(
     fallback_models=FALLBACK_MODELS,
     # Cloudflare's /ai/v1 has no /models endpoint; health probing is disabled
     # and the prebuilt catalog is authoritative. The base URL is derived from
-    # the account ID; CLOUDFLARE_BASE_URL in env_vars makes the stock setup
-    # wizard pre-fill its Base URL prompt from the account-derived URL, and
-    # an empty Enter keeps it - the user never types a Base URL.
+    # the account ID: BASE_URL_ENV is declared above so stock Hermes
+    # (hermes_cli/auth._register_plugin_provider) maps it to
+    # ProviderConfig.base_url_env_var, and 'hermes cloudflare setup' writes
+    # the derived URL there - the setup wizard pre-fills it, never prompts
+    # the user to type an override. URLs stay LAZY (see CloudflareProfile).
     supports_health_check=False,
 )
-
-# Legacy patched hermes-agent cores (pre-2026-09-11) declare a
-# `fixed_base_url` field the setup wizard honors to skip the Base URL
-# prompt; stock core has NO such field (`hermes update` wipes core
-# patches). Never pass it as a constructor kwarg - that raises TypeError
-# on stock core. Set it post-construction only when the base class
-# declares it.
+# fixed_base_url: a legacy core flag (patched pre-2026-09-11 hermes-agent
+# cores) the setup wizard honors to skip the Base URL prompt entirely; stock
+# core has NO such field (`hermes update` wipes core patches). Never pass it
+# as a constructor kwarg - that raises TypeError on stock core. Set it
+# post-construction only when the base class declares it; the env-var
+# mechanism (BASE_URL_ENV above) is the fallback on cores without the field.
 if hasattr(ProviderProfile, "fixed_base_url"):
     cloudflare.fixed_base_url = True
 
