@@ -9,8 +9,9 @@ Contract under test:
   (NOT OpenAI's ``/models``).
 - Without an account ID the catalog URL is None and the inference URL uses
   the ``<ACCOUNT_ID>`` placeholder.
-- ``fixed_base_url=True`` so the Hermes setup wizard never prompts for a
-  Base URL override.
+- ``CLOUDFLARE_BASE_URL`` is declared in ``env_vars`` so the stock setup
+  wizard pre-fills its Base URL prompt from the account-derived URL (the
+  ``*_BASE_URL`` suffix maps to ``ProviderConfig.base_url_env_var``).
 """
 
 from __future__ import annotations
@@ -28,6 +29,7 @@ API_BASE = "https://api.cloudflare.com/client/v4"
 
 class UrlTest(unittest.TestCase):
 	def setUp(self):
+		os.environ.pop(plugin.BASE_URL_ENV, None)
 		self._saved = dict(os.environ)
 		os.environ[plugin.AUTH_ACCOUNT_ENV] = ACCOUNT
 
@@ -39,6 +41,13 @@ class UrlTest(unittest.TestCase):
 		self.assertEqual(
 			plugin.inference_base_url(),
 			f"{API_BASE}/accounts/{ACCOUNT}/ai/v1",
+		)
+
+	def test_inference_base_url_prefers_env_override(self):
+		os.environ[plugin.BASE_URL_ENV] = "https://example.com/override/v1"
+		self.assertEqual(
+			plugin.inference_base_url(),
+			"https://example.com/override/v1",
 		)
 
 	def test_inference_base_url_contains_account_id(self):
@@ -82,10 +91,16 @@ class UrlTest(unittest.TestCase):
 		os.environ.pop(plugin.ACCOUNT_ENV, None)
 		self.assertEqual(plugin.cloudflare.models_url, "")
 
-	def test_fixed_base_url_flag_set(self):
-		# The base URL is derived from the account ID; the setup wizard must
-		# never prompt for a Base URL override (feedback 06).
-		self.assertTrue(plugin.cloudflare.fixed_base_url)
+	def test_base_url_env_var_declared(self):
+		# Stock hermes-agent maps any *_BASE_URL env var in env_vars to
+		# ProviderConfig.base_url_env_var, so the setup wizard pre-fills its
+		# Base URL prompt from the account-derived URL (feedback 06 + HANDOFF).
+		self.assertIn(plugin.BASE_URL_ENV, plugin.cloudflare.env_vars)
+		self.assertTrue(plugin.BASE_URL_ENV.endswith("_BASE_URL"))
+		# Legacy patched cores additionally carry a fixed_base_url flag; it
+		# is set post-construction only when the base class declares it.
+		if hasattr(plugin.ProviderProfile, "fixed_base_url"):
+			self.assertTrue(plugin.cloudflare.fixed_base_url)
 
 	def test_base_url_uses_client_v4_prefix(self):
 		self.assertTrue(plugin.inference_base_url().startswith(API_BASE))

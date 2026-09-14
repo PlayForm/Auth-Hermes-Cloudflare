@@ -13,10 +13,14 @@ The account ID is injected from the environment (``CLOUDFLARE_ACCOUNT_ID`` /
 ``AUTH_CLOUDFLARE_API_TOKEN``) is a secret and is only ever sent as a Bearer
 header - never logged, never echoed.
 
-The base URL is DERIVED from the account ID, so the provider declares
-``fixed_base_url=True``: the Hermes setup wizard never asks the user for a
-Base URL override (hermes-agent ``_model_flow_api_key_provider`` honors this
-flag and reads the profile's live URL instead).
+The base URL is DERIVED from the account ID. The profile declares the
+``CLOUDFLARE_BASE_URL`` env var in ``env_vars``: stock hermes-agent maps any
+``*_BASE_URL``-suffixed var to ``ProviderConfig.base_url_env_var``, so the
+setup wizard pre-fills its Base URL prompt with the account-derived URL and
+an empty Enter keeps it - the user never types a Base URL. A legacy
+``fixed_base_url`` flag is set post-construction only on cores that still
+declare it (a ``hermes update`` wipes patched cores, so the plugin must
+import cleanly on stock core).
 
 This provider is registered as ``auth-cloudflare-workers-ai`` with the
 display name **Auth Cloudflare Workers AI**. Live catalog discovery is owned
@@ -72,6 +76,11 @@ TOKEN_ENV = "CLOUDFLARE_API_TOKEN"
 ACCOUNT_ENV = "CLOUDFLARE_ACCOUNT_ID"
 AUTH_TOKEN_ENV = "AUTH_CLOUDFLARE_API_TOKEN"
 AUTH_ACCOUNT_ENV = "AUTH_CLOUDFLARE_ACCOUNT_ID"
+# Base URL env var (HANDOFF 2026-09-11): stock hermes-agent maps any
+# ``*_BASE_URL``-suffixed name in the profile's env_vars to
+# ProviderConfig.base_url_env_var, so the setup wizard pre-fills its Base
+# URL prompt from this var and persists an override here on explicit entry.
+BASE_URL_ENV = "CLOUDFLARE_BASE_URL"
 DEFAULT_MODEL = "@cf/deepseek-ai/deepseek-v4-flash-0731"
 
 # Model policy (feedback 06, binding): the plugin's single policy record.
@@ -279,7 +288,14 @@ def api_token() -> str | None:
 
 
 def inference_base_url() -> str:
-    """OpenAI-compatible inference base URL for the configured account."""
+    """OpenAI-compatible inference base URL for the configured account.
+
+    ``CLOUDFLARE_BASE_URL`` wins when set (the setup wizard persists an
+    override there); otherwise the URL is derived from the account ID.
+    """
+    override = _env(BASE_URL_ENV)
+    if override:
+        return override
     return f"{API_BASE}/accounts/{account_id() or '<ACCOUNT_ID>'}/ai/v1"
 
 
@@ -1194,17 +1210,27 @@ cloudflare = CloudflareProfile(
         "Cloudflare-hosted Workers AI models, with account-aware discovery"
     ),
     signup_url="https://dash.cloudflare.com/profile/api-tokens",
-    env_vars=(TOKEN_ENV, ACCOUNT_ENV),
+    env_vars=(TOKEN_ENV, ACCOUNT_ENV, BASE_URL_ENV),
     api_mode="chat_completions",
     auth_type="api_key",
     default_aux_model=DEFAULT_MODEL,
     fallback_models=FALLBACK_MODELS,
     # Cloudflare's /ai/v1 has no /models endpoint; health probing is disabled
     # and the prebuilt catalog is authoritative. The base URL is derived from
-    # the account ID, so the setup wizard must never prompt for an override.
+    # the account ID; CLOUDFLARE_BASE_URL in env_vars makes the stock setup
+    # wizard pre-fill its Base URL prompt from the account-derived URL, and
+    # an empty Enter keeps it - the user never types a Base URL.
     supports_health_check=False,
-    fixed_base_url=True,
 )
+
+# Legacy patched hermes-agent cores (pre-2026-09-11) declare a
+# `fixed_base_url` field the setup wizard honors to skip the Base URL
+# prompt; stock core has NO such field (`hermes update` wipes core
+# patches). Never pass it as a constructor kwarg - that raises TypeError
+# on stock core. Set it post-construction only when the base class
+# declares it.
+if hasattr(ProviderProfile, "fixed_base_url"):
+    cloudflare.fixed_base_url = True
 
 register_provider(cloudflare)
 
