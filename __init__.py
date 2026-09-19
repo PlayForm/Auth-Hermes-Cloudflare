@@ -67,6 +67,7 @@ import re
 import shutil
 import subprocess
 from pathlib import Path
+from typing import Any
 
 from providers import register_provider
 from providers.base import ProviderProfile
@@ -137,6 +138,15 @@ PRIMARY_AGENT_MODELS: tuple[str, ...] = (
     "@cf/zai-org/glm-5.3",
     "@cf/zai-org/glm-5.3-flash",
 )
+
+# Cloudflare OpenAI-compatible reasoning-effort wire vocabulary. The Workers AI
+# chat-completions schema documents ``reasoning_effort`` as the enum
+# low|medium|high (per-model docs, e.g. deepseek-v4-flash-0731) - narrower than
+# Hermes' internal ladder (none..ultra) and than the generic OpenAI-compat wire
+# set (none..max). build_api_kwargs_extras clamps onto this set; "none" and
+# disabled efforts omit the field entirely (Cloudflare has no "none" level and
+# no ``thinking`` toggle on this surface).
+CLOUDFLARE_REASONING_EFFORTS: tuple[str, ...] = ("low", "medium", "high")
 
 # Executable bridge: the auth-cloudflare CLI owns catalog
 # and policy; the plugin only discovers it, handshakes, and consumes JSON.
@@ -1046,6 +1056,32 @@ def _try_register_hermes_cli_command() -> None:
         )
 
 
+def _clamp_effort(effort: str, supported: tuple[str, ...]) -> str:
+    """Nearest-WEAKER clamp of *effort* onto *supported*; never escalates cost.
+
+    Prefers the canonical ``agent.reasoning_effort.clamp_effort`` when the
+    Hermes runtime is importable (stock core), with a local ladder fallback so
+    the plugin still clamps correctly in bare-provider/test contexts.
+    """
+    try:
+        from agent.reasoning_effort import clamp_effort
+
+        clamped = clamp_effort(effort, supported)
+        if isinstance(clamped, str) and clamped:
+            return clamped
+    except Exception:
+        pass
+    ladder = ("none", "minimal", "low", "medium", "high", "xhigh", "max", "ultra")
+    if effort in supported:
+        return effort
+    try:
+        idx = ladder.index(effort)
+    except ValueError:
+        return effort  # bespoke name - pass through unchanged
+    weaker = [lvl for lvl in supported if lvl in ladder and ladder.index(lvl) < idx]
+    return max(weaker, key=ladder.index) if weaker else min(supported, key=ladder.index)
+
+
 class CloudflareProfile(ProviderProfile):
     """Cloudflare Workers AI profile with LAZY, account-aware URLs.
 
@@ -1108,6 +1144,47 @@ class CloudflareProfile(ProviderProfile):
                     "fetch_models(%s): binary incompatible - %s", self.name, detail
                 )
         return list(FALLBACK_MODELS)
+
+    def supported_reasoning_efforts(self, model: str | None) -> tuple[str, ...] | None:
+        """Tri-state effort vocabulary for *model* on the Cloudflare wire.
+
+        Plugin chat models (PRIMARY_AGENT_MODELS / FALLBACK_MODELS): the
+        documented low|medium|high set. Everything else (non-chat, safety,
+        unknown ids): () so no reasoning field is ever sent to an endpoint
+        that does not document one.
+        """
+        mid = (model or "").strip()
+        if mid in PRIMARY_AGENT_MODELS or mid in FALLBACK_MODELS:
+            return CLOUDFLARE_REASONING_EFFORTS
+        return ()
+
+    def build_api_kwargs_extras(
+        self,
+        *,
+        reasoning_config: dict | None = None,
+        model: str | None = None,
+        **context: Any,
+    ) -> tuple[dict[str, Any], dict[str, Any]]:
+        """Clamp Hermes' effort onto Cloudflare's low|medium|high wire set.
+
+        Cloudflare's OpenAI-compatible schema takes ``reasoning_effort``
+        top-level (enum low|medium|high) and has no ``thinking`` toggle and no
+        "none" level: a disabled / missing / "none" effort omits the field
+        entirely. The generic transport clamp (OPENAI_COMPAT_WIRE_EFFORTS,
+        tops out at ``max``) would forward levels Cloudflare rejects, so this
+        profile clamps again onto the documented set (#89503 class).
+        """
+        supported = self.supported_reasoning_efforts(model)
+        if (
+            not supported
+            or not isinstance(reasoning_config, dict)
+            or reasoning_config.get("enabled") is False
+        ):
+            return {}, {}
+        effort = str(reasoning_config.get("effort") or "").strip().lower()
+        if not effort or effort == "none":
+            return {}, {}
+        return {}, {"reasoning_effort": _clamp_effort(effort, supported)}
 
 
 def validate_setup() -> dict:
