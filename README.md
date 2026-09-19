@@ -226,6 +226,35 @@ API plugins' `post_setup` uses. Hermes' model-capability resolution
 and `model_family` for every synced model on both provider paths. Re-run
 after catalog changes; `--dry-run` prints the section without writing.
 
+### Deep Hermes integration (Aphrodite-style hooks)
+
+Registered at plugin import time through Hermes' `PluginContext` reach-in
+(the same surface the `hermes cloudflare` CLI commands use) - guarded,
+idempotent, and a no-op outside the Hermes CLI runtime:
+
+- **`llm_request` middleware** - rewrites every outgoing Cloudflare call onto
+  the official schema: `max_tokens` → `max_completion_tokens` (the schema
+  marks `max_tokens` deprecated), `reasoning_effort` clamped to the
+  documented low|medium|high enum, `temperature` clamped to the 0..2 range.
+  Only fires for Cloudflare calls; every other request passes through
+  untouched.
+- **`transform_api_error_classification` hook** - maps Cloudflare status codes
+  onto Hermes' failover vocabulary: 429 → `rate_limit` (backoff + rotate),
+  503/529 → `overloaded`, 500/502 → `server_error`, 401/403 → `auth` (rotate),
+  400 → invalid request (non-retryable). Non-Cloudflare errors keep the
+  default classification.
+- **`on_session_start` hook** - self-heal: re-applies `model_overrides` from
+  the live catalog at session start (cache-first, write-free when the config
+  is already current - the same pattern as the Aphrodite plugin's startup
+  layout check).
+
+The official Workers AI schemas (`.playform/schemas`) confirm the contract
+this integration targets: standard OpenAI message envelope, no
+`reasoning_content` in either direction (Cloudflare does not expose DeepSeek
+reasoning text, so Hermes' reasoning-echo machinery is inert), and
+`usage.completion_tokens_details.reasoning_tokens` for reasoning-token
+accounting.
+
 > [!NOTE]
 >
 > Without the executable the picker still works pure-Python through the
