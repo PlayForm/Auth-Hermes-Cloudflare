@@ -7,6 +7,10 @@ author: PlayForm
 homepage: https://github.com/PlayForm/Cloudflare
 repository: https://github.com/PlayForm/Hermes-Cloudflare
 license: CC0-1.0
+requires_hooks: true
+provides_hooks:
+  - transform_api_error_classification
+  - on_session_start
 env_vars:
   - CLOUDFLARE_API_TOKEN
   - CLOUDFLARE_ACCOUNT_ID

@@ -854,7 +854,7 @@ def cloudflare_models_sync(
             "model_overrides": overrides,
         }
     try:
-        from hermes_cli.config import save_config
+        from hermes_cli.config import load_config_readonly, save_config
     except Exception:
         return {
             "status": "warning",
@@ -864,6 +864,24 @@ def cloudflare_models_sync(
             "model_overrides": overrides,
             "exit_code": 0,
         }
+    # Skip the write when the config already carries these exact overrides
+    # (session-start self-heal would otherwise rewrite config.yaml every turn).
+    try:
+        existing_raw = load_config_readonly().get("model_overrides") or {}
+        existing = existing_raw if isinstance(existing_raw, dict) else {}
+        merged: dict[str, dict] = {**existing}
+        for provider, models in overrides.items():
+            merged.setdefault(provider, {}).update(models)
+        if merged == existing:
+            return {
+                "status": "ok",
+                "unchanged": True,
+                "source": data.get("source"),
+                "cache_status": data.get("cache_status"),
+                "model_count": model_count,
+            }
+    except Exception:  # noqa: BLE001 - degrade to the safe merge write
+        pass
     try:
         save_config({"model_overrides": overrides}, merge_existing=True)
     except Exception as exc:  # noqa: BLE001 - degrade, never raise
@@ -880,6 +898,170 @@ def cloudflare_models_sync(
         "model_count": model_count,
         "entries_written": sum(len(v) for v in overrides.values()),
     }
+
+
+# ── Deep Hermes integration (Aphrodite-style hooks; no core edits) ──────────
+# Registered at import time through the same PluginContext reach-in as the CLI
+# commands (_try_register_hermes_cli_command). Each registration is guarded and
+# idempotent; outside the Hermes CLI runtime everything degrades to a no-op so
+# the plugin imports cleanly on stock core / bare-provider contexts.
+
+_CLOUDFLARE_HOST_FRAGMENT = "api.cloudflare.com"
+
+
+def _is_cloudflare_call(context: dict) -> bool:
+    """True when *context* names the Cloudflare provider or base URL."""
+    provider = str(context.get("provider") or "").strip().lower()
+    if provider in ("auth-cloudflare-workers-ai", "cloudflare", "custom:cloudflare"):
+        return True
+    host = str(context.get("base_url") or "")
+    return _CLOUDFLARE_HOST_FRAGMENT in host
+
+
+def _cloudflare_llm_request_middleware(payload: dict, **context: Any) -> dict:
+    """Rewrite the outgoing LLM request onto Cloudflare's OpenAI-compatible schema.
+
+    Runs inside Hermes' ``llm_request`` middleware chain (the ``{"request":
+    {...}}`` result REPLACES the provider kwargs before the API call):
+
+    - ``max_tokens`` → ``max_completion_tokens`` (the Cloudflare schema marks
+      ``max_tokens`` deprecated in favour of ``max_completion_tokens``)
+    - ``reasoning_effort`` clamped to the documented low|medium|high enum
+    - ``temperature`` clamped to the documented 0..2 range
+
+    Only returns a replacement when something actually changed and only for
+    Cloudflare calls; every other request passes through untouched.
+    """
+    if not _is_cloudflare_call(context):
+        return {}
+    request = payload.get("request")
+    if not isinstance(request, dict):
+        return {}
+    rewritten = dict(request)
+    changed = False
+    max_tokens = rewritten.get("max_tokens")
+    if isinstance(max_tokens, int) and not isinstance(max_tokens, bool) and max_tokens > 0:
+        rewritten.pop("max_tokens", None)
+        rewritten["max_completion_tokens"] = max_tokens
+        changed = True
+    effort = rewritten.get("reasoning_effort")
+    if isinstance(effort, str) and effort.strip():
+        lowered = effort.strip().lower()
+        if lowered not in CLOUDFLARE_REASONING_EFFORTS:
+            clamped = _clamp_effort(lowered, CLOUDFLARE_REASONING_EFFORTS)
+            if clamped != effort:
+                rewritten["reasoning_effort"] = clamped
+                changed = True
+    temperature = rewritten.get("temperature")
+    if isinstance(temperature, (int, float)) and not isinstance(temperature, bool):
+        bounded = max(0.0, min(2.0, float(temperature)))
+        if bounded != temperature:
+            rewritten["temperature"] = bounded
+            changed = True
+    if not changed:
+        return {}
+    return {
+        "request": rewritten,
+        "source": "auth-hermes-cloudflare",
+        "reason": "cloudflare OpenAI-compatible schema",
+    }
+
+
+def _cloudflare_api_error_classification(**kwargs: Any) -> dict | None:
+    """Cloudflare-specific API error classification (Hermes' FailoverReason).
+
+    Maps Cloudflare's error surface onto the failover vocabulary: 429 →
+    rate_limit (backoff + rotate), 503/529 → overloaded (backoff), 500/502 →
+    server_error (retry), 401/403 → auth (refresh/rotate), 400 → invalid
+    request (not retryable - the message hints the cause, e.g. an invalid
+    reasoning_effort). Returns None for non-Cloudflare calls so the default
+    classifier applies unchanged.
+    """
+    if not _is_cloudflare_call(kwargs):
+        return None
+    try:
+        status = int(kwargs.get("status_code")) if kwargs.get("status_code") is not None else 0
+    except (TypeError, ValueError):
+        status = 0
+    try:
+        from agent.error_classifier import FailoverReason
+    except Exception:
+        return None
+    if status == 429:
+        return {"reason": FailoverReason.rate_limit.name, "retryable": True,
+                "should_rotate_credential": True, "message": "Cloudflare rate limit (429)"}
+    if status in (503, 529):
+        return {"reason": FailoverReason.overloaded.name, "retryable": True,
+                "message": "Cloudflare model overloaded" if status == 529 else "Cloudflare service unavailable (503)"}
+    if status in (500, 502):
+        return {"reason": FailoverReason.server_error.name, "retryable": True,
+                "message": "Cloudflare server error"}
+    if status in (401, 403):
+        return {"reason": FailoverReason.auth.name, "retryable": True,
+                "should_rotate_credential": True, "message": "Cloudflare token rejected (401/403)"}
+    if status == 400:
+        invalid_request = getattr(FailoverReason, "invalid_request", None)
+        if invalid_request is None:
+            return None
+        return {"reason": invalid_request.name, "retryable": False,
+                "message": "Cloudflare rejected the request (400) - check reasoning_effort / params"}
+    return None
+
+
+def _cloudflare_on_session_start(**kwargs: Any) -> None:
+    """Session-start self-heal: re-apply model_overrides from the live catalog.
+
+    Cache-first (no network when the cache is fresh) and write-free when the
+    config is already current - the same self-heal pattern as the Aphrodite
+    plugin's startup layout check. Never raises.
+    """
+    try:
+        result = cloudflare_models_sync()
+        if result.get("status") == "error":
+            from providers.base import logger
+
+            logger.debug(
+                "auth-hermes-cloudflare: session-start models sync skipped: %s",
+                result.get("error"),
+            )
+    except Exception:
+        from providers.base import logger
+
+        logger.debug("auth-hermes-cloudflare: session-start models sync failed", exc_info=True)
+
+
+_HOOKS_REGISTERED = False
+
+
+def _try_register_hermes_hooks_and_middleware() -> None:
+    """Wire the llm_request middleware + API hooks into Hermes (guarded, idempotent)."""
+    global _HOOKS_REGISTERED
+    if _HOOKS_REGISTERED:
+        return
+    try:
+        from hermes_cli.plugins import PluginContext, PluginManifest, get_plugin_manager
+    except Exception:
+        return
+    try:
+        manager = get_plugin_manager()
+        context = PluginContext(
+            PluginManifest(name="auth-hermes-cloudflare", key="auth-hermes-cloudflare"),
+            manager,
+        )
+        context.register_middleware("llm_request", _cloudflare_llm_request_middleware)
+        context.register_hook(
+            "transform_api_error_classification", _cloudflare_api_error_classification
+        )
+        context.register_hook("on_session_start", _cloudflare_on_session_start)
+        _HOOKS_REGISTERED = True
+    except Exception as exc:  # noqa: BLE001 - degrade, never break import
+        from providers.base import logger
+
+        logger.warning(
+            "auth-hermes-cloudflare: hook/middleware registration failed (%s) - "
+            "API-call rewriting and error classification are DISABLED for this session",
+            exc,
+        )
 
 
 def _model_policy() -> dict:
@@ -1575,3 +1757,6 @@ register_provider(cloudflare)
 # Hermes-native diagnostics CLI wiring: guarded, idempotent,
 # and a no-op outside the Hermes CLI runtime - see _try_register_hermes_cli_command.
 _try_register_hermes_cli_command()
+# Deep integration (Aphrodite-style): llm_request middleware + API hooks -
+# guarded, idempotent, no-op outside the CLI runtime.
+_try_register_hermes_hooks_and_middleware()
