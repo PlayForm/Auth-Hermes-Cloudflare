@@ -158,8 +158,8 @@ export CLOUDFLARE_API_TOKEN="<scoped token>"       # Account → Workers AI → 
 
 The provider path is pure Python, so this is optional. The `auth-cloudflare`
 executable backs the full command surface - `hermes cloudflare doctor /
-catalog refresh / catalog export / model inspect`, catalog caching, and the
-conformance commands (`model verify --suite smoke|tool-loop`, `model
+catalog refresh / catalog export / model inspect / models sync`, catalog
+caching, and the conformance commands (`model verify --suite smoke|tool-loop`, `model
 health`). `download.sh` installs it from GitHub Releases:
 
 **`Terminal`**
@@ -202,6 +202,29 @@ auth-hermes-cloudflare link --source <path>   # symlink/copy <path> → ~/.herme
 `--no-download` (print manual install instructions instead). `upgrade`
 re-runs `download.sh` with the latest `BINARY_VERSION`, so updating is the
 same atomic, checksum-verified flow as a fresh install.
+
+### Fine-grained Hermes integration (`models sync`)
+
+`hermes cloudflare models sync` hands the live catalog to Hermes through its
+supported `model_overrides` config path - no Hermes core edits:
+
+```sh
+hermes cloudflare models sync [--dry-run]
+```
+
+The `auth-cloudflare` binary emits one capability record per
+primary-agent-eligible model (`models sync --format json`, cache-first like
+`catalog get`): context window from the live API, tool-calling and
+reasoning flags, the documented `reasoning_effort` vocabulary
+(low|medium|high) and model family. The plugin maps these onto
+`model_overrides.<provider>.<model>.<field>` for both provider keys
+(`auth-cloudflare-workers-ai` and `cloudflare`) and writes the section
+through `hermes_cli.config.save_config` (merge_existing) - the same write
+API plugins' `post_setup` uses. Hermes' model-capability resolution
+(`get_model_capabilities`) then reports the real context windows (e.g.
+1,310,720 for deepseek-v4-flash-0731), `supports_tools`/`supports_reasoning`
+and `model_family` for every synced model on both provider paths. Re-run
+after catalog changes; `--dry-run` prints the section without writing.
 
 > [!NOTE]
 >

@@ -148,6 +148,12 @@ PRIMARY_AGENT_MODELS: tuple[str, ...] = (
 # no ``thinking`` toggle on this surface).
 CLOUDFLARE_REASONING_EFFORTS: tuple[str, ...] = ("low", "medium", "high")
 
+# The plugin's vision-capable model: the only primary-agent-eligible Cloudflare
+# model that accepts image input (llama-3.2-11b vision). default_vision_model()
+# returns it so Hermes' auxiliary vision calls route here instead of the
+# text-only main model (which 400s on image content).
+CLOUDFLARE_VISION_MODEL = "@cf/meta/llama-3.2-11b-vision-instruct"
+
 # Executable bridge: the auth-cloudflare CLI owns catalog
 # and policy; the plugin only discovers it, handshakes, and consumes JSON.
 # Discovery NEVER downloads at import - downloading is the installer's job
@@ -765,6 +771,117 @@ def cloudflare_catalog_export(fmt: str, binary: str | None = None) -> dict:
     return {"status": "ok", "format": fmt, "content": stdout}
 
 
+# Provider keys under which the sync writes Hermes `model_overrides`: the
+# plugin provider id and the custom-provider path (both reach Hermes' model
+# capability resolution - models_dev `_provider_override_section`).
+_SYNC_PROVIDER_KEYS = ("auth-cloudflare-workers-ai", "cloudflare")
+
+
+def _model_overrides_from_records(records: list[dict]) -> dict:
+    """Map `models sync` capability records → Hermes `model_overrides` dict.
+
+    Pure mapper (no binary, no config): each primary-agent-eligible record
+    becomes ``model_overrides.<provider>.<model>.<field>`` under both provider
+    keys. Only fields Hermes' override schema reads are emitted
+    (context_window, supports_tools, supports_reasoning, model_family); a
+    record with no usable fields is skipped entirely.
+    """
+    overrides: dict[str, dict[str, dict[str, object]]] = {}
+    for record in records:
+        if not isinstance(record, dict):
+            continue
+        mid = record.get("id")
+        if not isinstance(mid, str) or not mid:
+            continue
+        entry: dict[str, object] = {}
+        context = record.get("context_window")
+        if isinstance(context, int) and context > 0:
+            entry["context_window"] = context
+        if record.get("tool_call") is True:
+            entry["supports_tools"] = True
+        if record.get("reasoning") is True:
+            entry["supports_reasoning"] = True
+        if record.get("supports_vision") is True:
+            entry["supports_vision"] = True
+        family = record.get("model_family")
+        if isinstance(family, str) and family:
+            entry["model_family"] = family
+        if not entry:
+            continue
+        for provider in _SYNC_PROVIDER_KEYS:
+            overrides.setdefault(provider, {})[mid] = entry
+    return overrides
+
+
+def cloudflare_models_sync(
+    binary: str | None = None, dry_run: bool = False, **kwargs: Any
+) -> dict:
+    """Apply the live catalog as Hermes `model_overrides` - no core edits.
+
+    The auth-cloudflare binary generates the capability records (`models sync
+    --format json`, cache-first like `catalog get`); this function maps them
+    onto ``model_overrides.<provider>.<model>.<field>`` and writes the section
+    through Hermes' supported config path (``hermes_cli.config.save_config``
+    with ``merge_existing`` - the same write API plugins' post_setup uses).
+    ``dry_run`` prints the dict without writing. Fails closed without a
+    compatible binary; degrades to a warning when ``hermes_cli.config`` is not
+    importable (bare-provider context) instead of raising.
+    """
+    bin_path, incompat = _locate_usable_binary(binary)
+    if bin_path is None:
+        return {"status": "error", "error": incompat or _BINARY_MISSING_MSG, "exit_code": 3}
+    data, error, rc = _run_binary_json(
+        bin_path, ["models", "sync", "--format", "json"], timeout=CATALOG_TIMEOUT
+    )
+    if data is None:
+        return {
+            "status": "error",
+            "error": error or _binary_failure_msg("models sync", rc or 1),
+            "exit_code": rc,
+        }
+    records = data.get("models") if isinstance(data, dict) else None
+    if not isinstance(records, list):
+        return {"status": "error", "error": "models sync returned no models array", "exit_code": 3}
+    overrides = _model_overrides_from_records(records)
+    model_count = len(records)
+    if dry_run:
+        return {
+            "status": "ok",
+            "dry_run": True,
+            "source": data.get("source"),
+            "cache_status": data.get("cache_status"),
+            "model_count": model_count,
+            "model_overrides": overrides,
+        }
+    try:
+        from hermes_cli.config import save_config
+    except Exception:
+        return {
+            "status": "warning",
+            "error": "hermes_cli.config not importable - run `hermes cloudflare models sync` "
+            "from a Hermes session to apply",
+            "model_count": model_count,
+            "model_overrides": overrides,
+            "exit_code": 0,
+        }
+    try:
+        save_config({"model_overrides": overrides}, merge_existing=True)
+    except Exception as exc:  # noqa: BLE001 - degrade, never raise
+        return {
+            "status": "error",
+            "error": f"could not write model_overrides: {exc}",
+            "exit_code": 1,
+        }
+    return {
+        "status": "ok",
+        "source": data.get("source"),
+        "cache_status": data.get("cache_status"),
+        "provider_keys": list(overrides.keys()),
+        "model_count": model_count,
+        "entries_written": sum(len(v) for v in overrides.values()),
+    }
+
+
 def _model_policy() -> dict:
     """MODEL_POLICY if the sibling task defined it, else ``{}``.
 
@@ -855,6 +972,7 @@ CLI_COMMANDS: dict[str, object] = {
     "catalog refresh": cloudflare_catalog_refresh,
     "catalog export": cloudflare_catalog_export,
     "model inspect": cloudflare_model_inspect,
+    "models sync": cloudflare_models_sync,
 }
 
 
@@ -917,6 +1035,14 @@ def cloudflare_command(cmd: str, **kwargs) -> dict:
                 "exit_code": 2,
             }
         return cloudflare_model_inspect(" ".join(parts[2:]), **kwargs)
+    if head == "models":
+        if len(parts) < 2 or parts[1] != "sync":
+            return {
+                "status": "error",
+                "error": "usage: cloudflare models sync [--dry-run]",
+                "exit_code": 2,
+            }
+        return cloudflare_models_sync(**kwargs)
     return {
         "status": "error",
         "error": f"unknown cloudflare command {head!r}",
@@ -962,16 +1088,20 @@ def _cloudflare_cli_catalog_export(args) -> int:
 
 
 def _cloudflare_cli_model_inspect(args) -> int:
-    return _cloudflare_cli_emit(cloudflare_model_inspect(args.model_id))
+	return _cloudflare_cli_emit(cloudflare_model_inspect(args.model_id))
+
+
+def _cloudflare_cli_models_sync(args) -> int:
+	return _cloudflare_cli_emit(cloudflare_models_sync(dry_run=args.dry_run))
 
 
 def _cloudflare_cli_bare(args) -> int:  # noqa: ARG001
-    print("Auth Cloudflare Workers AI diagnostics")
-    print(
-        "usage: hermes cloudflare doctor | setup | catalog refresh | "
-        "catalog export {yaml,markdown} | model inspect <model-id>"
-    )
-    return 0
+	print("Auth Cloudflare Workers AI diagnostics")
+	print(
+		"usage: hermes cloudflare doctor | setup | catalog refresh | "
+		"catalog export {yaml,markdown} | model inspect <model-id> | models sync [--dry-run]"
+	)
+	return 0
 
 
 def _build_cloudflare_cli_parser(subparser) -> None:
@@ -1015,6 +1145,16 @@ def _build_cloudflare_cli_parser(subparser) -> None:
         "model_id", help="model id, e.g. @cf/deepseek-ai/deepseek-v4-flash-0731"
     )
     p_inspect.set_defaults(func=_cloudflare_cli_model_inspect)
+
+    p_models = sub.add_parser("models", help="Model catalog operations: sync")
+    ms = p_models.add_subparsers(dest="models_cmd", metavar="{sync}")
+    p_sync = ms.add_parser(
+        "sync", help="Apply the live catalog as Hermes model_overrides config"
+    )
+    p_sync.add_argument(
+        "--dry-run", action="store_true", help="print the overrides without writing config"
+    )
+    p_sync.set_defaults(func=_cloudflare_cli_models_sync)
 
 
 def _try_register_hermes_cli_command() -> None:
@@ -1185,6 +1325,16 @@ class CloudflareProfile(ProviderProfile):
         if not effort or effort == "none":
             return {}, {}
         return {}, {"reasoning_effort": _clamp_effort(effort, supported)}
+
+    def default_vision_model(self) -> str | None:
+        """The plugin's vision-capable model (llama-3.2-11b-vision).
+
+        The main agent model is text-only, so Hermes' auxiliary vision calls
+        must route here - otherwise they hit the text model and the image
+        input 400s (auxiliary_client `_resolve_provider_vision_default`
+        consults this hook).
+        """
+        return CLOUDFLARE_VISION_MODEL
 
 
 def validate_setup() -> dict:
