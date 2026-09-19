@@ -33,7 +33,7 @@ class SupportedReasoningEffortsTest(unittest.TestCase):
 
     def test_chat_model_declares_cloudflare_set(self):
         self.assertEqual(
-            plugin.CloudflareProfile().supported_reasoning_efforts(CHAT_MODEL),
+            plugin.cloudflare.supported_reasoning_efforts(CHAT_MODEL),
             ("low", "medium", "high"),
         )
 
@@ -44,36 +44,36 @@ class SupportedReasoningEffortsTest(unittest.TestCase):
             "@cf/zai-org/glm-5.3-flash",
         ):
             self.assertEqual(
-                plugin.CloudflareProfile().supported_reasoning_efforts(mid),
+                plugin.cloudflare.supported_reasoning_efforts(mid),
                 ("low", "medium", "high"),
             )
 
     def test_safety_model_accepts_no_reasoning_params(self):
         self.assertEqual(
-            plugin.CloudflareProfile().supported_reasoning_efforts(GUARD_MODEL),
+            plugin.cloudflare.supported_reasoning_efforts(GUARD_MODEL),
             (),
         )
 
     def test_unknown_model_accepts_no_reasoning_params(self):
         self.assertEqual(
-            plugin.CloudflareProfile().supported_reasoning_efforts(UNKNOWN_MODEL),
+            plugin.cloudflare.supported_reasoning_efforts(UNKNOWN_MODEL),
             (),
         )
 
     def test_none_model_accepts_no_reasoning_params(self):
-        self.assertEqual(plugin.CloudflareProfile().supported_reasoning_efforts(None), ())
+        self.assertEqual(plugin.cloudflare.supported_reasoning_efforts(None), ())
 
 
 class BuildApiKwargsExtrasTest(unittest.TestCase):
     """Wire clamping contract."""
 
     def _emit(self, model, reasoning_config):
-        return plugin.CloudflareProfile().build_api_kwargs_extras(
+        return plugin.cloudflare.build_api_kwargs_extras(
             reasoning_config=reasoning_config, model=model
         )
 
     def test_effort_clamps_onto_documented_set(self):
-        profile = plugin.CloudflareProfile()
+        profile = plugin.cloudflare
         cases = {
             # Hermes tier -> Cloudflare wire value
             "ultra": "high",
