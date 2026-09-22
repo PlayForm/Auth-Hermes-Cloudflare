@@ -1,13 +1,3 @@
-# Cloudflare proxy binary + plugin dylib (auto-downloaded by download.sh)
-binaries/cloudflare
-binaries/cloudflare.exe
-binaries/libcloudflare_hermes.dylib
-binaries/libcloudflare.dylib
-binaries/libcloudflare_hermes.so
-binaries/cloudflare_hermes.dll
-binaries/cloudflare-hermes-setup
-binaries/.hotreload/
-
 # Python
 __pycache__/
 *.py[cod]
