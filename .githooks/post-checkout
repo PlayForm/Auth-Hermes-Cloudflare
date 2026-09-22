@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+# post-checkout - keep this submodule ON Current and the parent's gitlink
+# in sync. Runs for BOTH repos (they share .githooks/). In a submodule:
+#   1. If HEAD is detached and a `Current` branch exists, jump back onto it
+#      (parent checkouts / `git submodule update` detach the submodule HEAD;
+#      we always work on Current so commits can never dangle).
+#   2. Then bump the parent's gitlink to HEAD (no stale "+" / "M submodule").
+# In a plain repo: auto-commit any updated submodule gitlinks. The
+# force-Current rule deliberately overrides ad-hoc detaches in this working
+# copy - use `git show`/worktrees to inspect old commits.
+set -euo pipefail
+
+DIR="$(cd "$(dirname "$0")" && pwd)"
+
+# In a submodule (a superproject exists): jump back onto Current when
+# detached, then defer to the shared lib (which is a no-op here - the MAIN
+# parent's own hooks handle its gitlink).
+if [[ -n "$(git rev-parse --show-superproject-working-tree 2> /dev/null || true)" ]]; then
+	if ! git symbolic-ref -q HEAD >/dev/null 2>&1 && git show-ref --verify --quiet refs/heads/Current; then
+		git checkout Current >/dev/null 2>&1 || true
+	fi
+	exit 0
+fi
+
+# In the main parent: only branch checkouts bump gitlinks.
+[ "${3:-0}" = "1" ] || exit 0
+
+exec "$DIR/lib/bump-submodule-gitlinks.sh"

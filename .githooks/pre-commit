@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+# pre-commit - guard the commit invariants (auth-cloudflare repo).
+#
+# 0. Branch guard - refuse commits on a detached HEAD. Auto-commits that
+#    land on a detached HEAD (submodule checkouts are detached by default)
+#    reference no branch and dangle as soon as the submodule is re-synced.
+#    Always commit on a branch (Current) so every commit stays reachable.
+# 1. Secret scan - never allow a real Cloudflare token value (or the Hermes
+#    custom-provider key literal) into the repository.
+set -euo pipefail
+
+if ! git symbolic-ref -q HEAD >/dev/null 2>&1; then
+	echo "ERROR: refusing to commit on a detached HEAD."
+	echo "  Check out a branch first, e.g.:  git checkout Current"
+	exit 1
+fi
+
+STAGED=$(git diff --cached --name-only --diff-filter=ACM)
+if [[ -z "$STAGED" ]]; then
+	exit 0
+fi
+
+# Secret scan (AGENTS.md guardrail): reject commits carrying a real token
+# prefix or the Hermes custom-provider key literal. The [K] bracket trick
+# keeps the pattern itself from matching this file's own source.
+if git diff --cached | grep -qE 'cfut_[A-Za-z0-9]{16,}|Authorization: Bearer [A-Za-z0-9._-]{20,}|HERMES_CUSTOM_API_CLOUDFLARE_COM_API_[K]EY=[^[:space:]"'"'"']+'; then
+	echo "ERROR: staged changes contain a secret (Cloudflare token prefix / Bearer / HERMES_CUSTOM_API_CLOUDFLARE_COM_API_KEY literal)."
+	echo "  Refusing to commit - rotate any leaked value and stage only safe content."
+	exit 1
+fi
+
+exit 0
