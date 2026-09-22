@@ -14,8 +14,12 @@
       },
       "context_length": 1310720,
       "architecture": {
-        "input_modalities": ["text"],
-        "output_modalities": ["text"]
+        "input_modalities": [
+          "text"
+        ],
+        "output_modalities": [
+          "text"
+        ]
       },
       "top_provider": {
         "max_completion_tokens": 131072,
@@ -30,17 +34,21 @@
       "name": "Zhipu AI: GLM 5.3 Flash",
       "description": "Experimental chat model - observed delivery failures; never the provider default.",
       "pricing": {
-        "prompt": "0.21",
-        "completion": "0.63",
+        "prompt": "0.15",
+        "completion": "0.5",
         "request": "0",
         "image": "0",
         "web_search": "0",
         "internal_reasoning": "0"
       },
-      "context_length": 131072,
+      "context_length": 1310720,
       "architecture": {
-        "input_modalities": ["text"],
-        "output_modalities": ["text"]
+        "input_modalities": [
+          "text"
+        ],
+        "output_modalities": [
+          "text"
+        ]
       },
       "top_provider": {
         "max_completion_tokens": 131072,
@@ -55,17 +63,21 @@
       "name": "Meta: Llama Guard 3 8B",
       "description": "Safety classifier model - hidden from the primary agent picker.",
       "pricing": {
-        "prompt": "0.18",
-        "completion": "0.18",
+        "prompt": "0.484",
+        "completion": "0.03",
         "request": "0",
         "image": "0",
         "web_search": "0",
         "internal_reasoning": "0"
       },
-      "context_length": 8192,
+      "context_length": 131072,
       "architecture": {
-        "input_modalities": ["text"],
-        "output_modalities": ["text"]
+        "input_modalities": [
+          "text"
+        ],
+        "output_modalities": [
+          "text"
+        ]
       },
       "top_provider": {
         "max_completion_tokens": 4096,
@@ -80,8 +92,8 @@
       "name": "Moonshot AI: Kimi K2.7 Code",
       "description": "Premium coding chat model with tool calling.",
       "pricing": {
-        "prompt": "0.88",
-        "completion": "2.64",
+        "prompt": "0.95",
+        "completion": "4",
         "request": "0",
         "image": "0",
         "web_search": "0",
@@ -89,8 +101,12 @@
       },
       "context_length": 262144,
       "architecture": {
-        "input_modalities": ["text"],
-        "output_modalities": ["text"]
+        "input_modalities": [
+          "text"
+        ],
+        "output_modalities": [
+          "text"
+        ]
       },
       "top_provider": {
         "max_completion_tokens": 131072,

@@ -1,0 +1,236 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-09-22T17:59:48.353540+00:00",
+  "source": "cloudflare-workers-ai",
+  "default_model": "@cf/deepseek-ai/deepseek-v4-flash-0731",
+  "model_policy": {
+    "@cf/openai/gpt-oss-120b": {
+      "status": "available",
+      "rank": 100,
+      "default": false,
+      "primary_agent_eligible": true,
+      "reason": "Available on Cloudflare Workers AI."
+    },
+    "@cf/meta/llama-3.2-3b-instruct": {
+      "status": "available",
+      "rank": 110,
+      "default": false,
+      "primary_agent_eligible": true,
+      "reason": "Available on Cloudflare Workers AI."
+    },
+    "@cf/meta/llama-guard-3-8b": {
+      "status": "hidden",
+      "rank": null,
+      "default": false,
+      "primary_agent_eligible": false,
+      "reason": "Safety classifier."
+    },
+    "@cf/moonshotai/kimi-k2.7-code": {
+      "status": "recommended",
+      "rank": 30,
+      "default": false,
+      "primary_agent_eligible": true,
+      "reason": "Premium coding."
+    },
+    "@cf/zai-org/glm-5.3": {
+      "status": "experimental",
+      "rank": 900,
+      "default": false,
+      "primary_agent_eligible": true,
+      "reason": "Experimental - requires conformance."
+    },
+    "@cf/deepseek-ai/deepseek-r1-distill-qwen-32b": {
+      "status": "available",
+      "rank": 120,
+      "default": false,
+      "primary_agent_eligible": true,
+      "reason": "Available on Cloudflare Workers AI."
+    },
+    "@cf/meta/llama-3.1-8b-instruct-fp8": {
+      "status": "available",
+      "rank": 130,
+      "default": false,
+      "primary_agent_eligible": true,
+      "reason": "Available on Cloudflare Workers AI."
+    },
+    "@cf/zai-org/glm-5.3-flash": {
+      "status": "experimental",
+      "rank": 900,
+      "default": false,
+      "primary_agent_eligible": true,
+      "reason": "Observed delivery failures; requires passing conformance suite."
+    },
+    "@cf/meta/llama-3.2-1b-instruct": {
+      "status": "available",
+      "rank": 140,
+      "default": false,
+      "primary_agent_eligible": true,
+      "reason": "Available on Cloudflare Workers AI."
+    },
+    "@cf/moonshotai/kimi-k2.6": {
+      "status": "available",
+      "rank": 150,
+      "default": false,
+      "primary_agent_eligible": true,
+      "reason": "Available on Cloudflare Workers AI."
+    },
+    "@cf/zai-org/glm-4.7-flash": {
+      "status": "available",
+      "rank": 160,
+      "default": false,
+      "primary_agent_eligible": true,
+      "reason": "Available on Cloudflare Workers AI."
+    },
+    "@cf/meta/llama-3.3-70b-instruct-fp8-fast": {
+      "status": "available",
+      "rank": 170,
+      "default": false,
+      "primary_agent_eligible": true,
+      "reason": "Available on Cloudflare Workers AI."
+    },
+    "@cf/ibm-granite/granite-4.0-h-micro": {
+      "status": "available",
+      "rank": 180,
+      "default": false,
+      "primary_agent_eligible": true,
+      "reason": "Available on Cloudflare Workers AI."
+    },
+    "@cf/deepseek-ai/deepseek-v4-flash-0731": {
+      "status": "recommended",
+      "rank": 10,
+      "default": true,
+      "primary_agent_eligible": true,
+      "reason": "Validated development default."
+    },
+    "@cf/qwen/qwen2.5-coder-32b-instruct": {
+      "status": "available",
+      "rank": 190,
+      "default": false,
+      "primary_agent_eligible": true,
+      "reason": "Available on Cloudflare Workers AI."
+    },
+    "@cf/zai-org/glm-5.2": {
+      "status": "available",
+      "rank": 200,
+      "default": false,
+      "primary_agent_eligible": true,
+      "reason": "Available on Cloudflare Workers AI."
+    },
+    "@cf/nvidia/nemotron-3-120b-a12b": {
+      "status": "available",
+      "rank": 210,
+      "default": false,
+      "primary_agent_eligible": true,
+      "reason": "Available on Cloudflare Workers AI."
+    },
+    "@cf/aisingapore/gemma-sea-lion-v4-27b-it": {
+      "status": "available",
+      "rank": 220,
+      "default": false,
+      "primary_agent_eligible": true,
+      "reason": "Available on Cloudflare Workers AI."
+    },
+    "@cf/qwen/qwen3-30b-a3b-fp8": {
+      "status": "available",
+      "rank": 230,
+      "default": false,
+      "primary_agent_eligible": true,
+      "reason": "Available on Cloudflare Workers AI."
+    },
+    "@cf/google/gemma-4-26b-a4b-it": {
+      "status": "available",
+      "rank": 240,
+      "default": false,
+      "primary_agent_eligible": true,
+      "reason": "Available on Cloudflare Workers AI."
+    },
+    "@cf/mistralai/mistral-small-3.1-24b-instruct": {
+      "status": "available",
+      "rank": 250,
+      "default": false,
+      "primary_agent_eligible": true,
+      "reason": "Available on Cloudflare Workers AI."
+    },
+    "@cf/deepseek-ai/deepseek-v4-pro-0813": {
+      "status": "recommended",
+      "rank": 20,
+      "default": false,
+      "primary_agent_eligible": true,
+      "reason": "Premium reasoning."
+    },
+    "@cf/meta/llama-3.2-11b-vision-instruct": {
+      "status": "available",
+      "rank": 260,
+      "default": false,
+      "primary_agent_eligible": true,
+      "reason": "Available on Cloudflare Workers AI."
+    },
+    "@cf/qwen/qwen3.8-27b": {
+      "status": "available",
+      "rank": 270,
+      "default": false,
+      "primary_agent_eligible": true,
+      "reason": "Available on Cloudflare Workers AI."
+    },
+    "@cf/openai/gpt-oss-20b": {
+      "status": "available",
+      "rank": 280,
+      "default": false,
+      "primary_agent_eligible": true,
+      "reason": "Available on Cloudflare Workers AI."
+    },
+    "@cf/meta/llama-4-scout-17b-16e-instruct": {
+      "status": "available",
+      "rank": 290,
+      "default": false,
+      "primary_agent_eligible": true,
+      "reason": "Available on Cloudflare Workers AI."
+    },
+    "@cf/qwen/qwq-32b": {
+      "status": "available",
+      "rank": 300,
+      "default": false,
+      "primary_agent_eligible": true,
+      "reason": "Available on Cloudflare Workers AI."
+    }
+  },
+  "primary_agent_models": [
+    "@cf/deepseek-ai/deepseek-v4-flash-0731",
+    "@cf/deepseek-ai/deepseek-v4-pro-0813",
+    "@cf/moonshotai/kimi-k2.7-code",
+    "@cf/openai/gpt-oss-120b",
+    "@cf/openai/gpt-oss-20b",
+    "@cf/qwen/qwen3-30b-a3b-fp8",
+    "@cf/qwen/qwen3.8-27b",
+    "@cf/zai-org/glm-5.3",
+    "@cf/zai-org/glm-5.3-flash"
+  ],
+  "fallback_models": [
+    "@cf/deepseek-ai/deepseek-v4-flash-0731",
+    "@cf/moonshotai/kimi-k2.7-code",
+    "@cf/deepseek-ai/deepseek-v4-pro-0813",
+    "@cf/openai/gpt-oss-120b",
+    "@cf/meta/llama-3.2-3b-instruct",
+    "@cf/deepseek-ai/deepseek-r1-distill-qwen-32b",
+    "@cf/meta/llama-3.1-8b-instruct-fp8",
+    "@cf/meta/llama-3.2-1b-instruct",
+    "@cf/moonshotai/kimi-k2.6",
+    "@cf/zai-org/glm-4.7-flash",
+    "@cf/meta/llama-3.3-70b-instruct-fp8-fast",
+    "@cf/ibm-granite/granite-4.0-h-micro",
+    "@cf/qwen/qwen2.5-coder-32b-instruct",
+    "@cf/zai-org/glm-5.2",
+    "@cf/nvidia/nemotron-3-120b-a12b",
+    "@cf/aisingapore/gemma-sea-lion-v4-27b-it",
+    "@cf/qwen/qwen3-30b-a3b-fp8",
+    "@cf/google/gemma-4-26b-a4b-it",
+    "@cf/mistralai/mistral-small-3.1-24b-instruct",
+    "@cf/meta/llama-3.2-11b-vision-instruct",
+    "@cf/qwen/qwen3.8-27b",
+    "@cf/openai/gpt-oss-20b",
+    "@cf/meta/llama-4-scout-17b-16e-instruct",
+    "@cf/qwen/qwq-32b",
+    "@cf/zai-org/glm-5.3",
+    "@cf/zai-org/glm-5.3-flash"
+  ]
+}
