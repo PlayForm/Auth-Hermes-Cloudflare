@@ -10,7 +10,7 @@ fetched from `/ai/models/search` in the OpenRouter format, and the provider
 shows up in `hermes model` with zero `custom_providers` wiring. **All
 endpoint/auth logic lives in the Rust core; Python is a thin provider.**
 
-[![plugin](https://img.shields.io/static/v1?label=plugin&message=v0.0.4&color=purple)](plugin.yaml)
+[![plugin](https://img.shields.io/static/v1?label=plugin&message=v0.0.5&color=purple)](plugin.yaml)
 [![hermes](https://img.shields.io/static/v1?label=hermes&message=%E2%89%A50.16.0&color=blue)](https://github.com/NousResearch/hermes-agent)
 [![license](https://img.shields.io/static/v1?label=license&message=CC0-1.0&color=lightgrey)](https://github.com/PlayForm/Auth-Cloudflare/blob/Current/LICENSE)
 
