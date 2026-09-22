@@ -87,56 +87,93 @@ AUTH_ACCOUNT_ENV = "AUTH_CLOUDFLARE_ACCOUNT_ID"
 BASE_URL_ENV = "CLOUDFLARE_BASE_URL"
 DEFAULT_MODEL = "@cf/deepseek-ai/deepseek-v4-flash-0731"
 
-# Model policy: the plugin's single policy record.
-# Status priority: recommended < available < experimental < hidden. `rank`
-# orders models within a status; `default` marks the sole development
-# default; hidden models (e.g. safety classifiers) are never primary-agent
-# options. The Rust core owns the canonical policy - this dict mirrors it
-# until the `auth-cloudflare policy get --format json` bridge lands.
-MODEL_POLICY: dict[str, dict[str, object]] = {
-    "@cf/deepseek-ai/deepseek-v4-flash-0731": {
-        "status": "recommended",
-        "rank": 10,
-        "default": True,
-        "reason": "Validated development default.",
-    },
-    "@cf/deepseek-ai/deepseek-v4-pro-0813": {
-        "status": "recommended",
-        "rank": 20,
-        "reason": "Premium reasoning.",
-    },
-    "@cf/moonshotai/kimi-k2.7-code": {
-        "status": "recommended",
-        "rank": 30,
-        "reason": "Premium coding.",
-    },
-    "@cf/zai-org/glm-5.3-flash": {
-        "status": "experimental",
-        "rank": 900,
-        "default": False,
-        "reason": "Observed delivery failures; requires passing conformance suite.",
-    },
-    "@cf/meta/llama-guard-3-8b": {
-        "status": "hidden",
-        "primary_agent_eligible": False,
-        "reason": "Safety classifier.",
-    },
-}
+# Model policy + agent-model lists: GENERATED data from
+# fixtures/plugin_defaults.json, refreshed by scripts/regenerate-fixtures.py
+# against the live Cloudflare Workers AI catalog. The Rust core owns the
+# canonical policy via the `auth-cloudflare policy get --format json` bridge;
+# this file is its regenerated mirror, not a hand-maintained list. Status
+# priority: recommended < available < experimental < hidden; `rank` orders
+# models within a status; `default` marks the sole development default;
+# hidden models (e.g. safety classifiers) are never primary-agent options.
+# Loading is DEFENSIVE: any read/parse/validation failure logs a warning and
+# falls back to a minimal built-in set so plugin import never crashes.
 
-# Narrow allow-list for the primary agent picker:
-# only these models lead the picker, in policy rank order. Any other
-# live-discovered chat-like model still appears, but only in an advanced
-# section after every allow-listed model.
-PRIMARY_AGENT_MODELS: tuple[str, ...] = (
-    "@cf/deepseek-ai/deepseek-v4-flash-0731",
-    "@cf/deepseek-ai/deepseek-v4-pro-0813",
-    "@cf/moonshotai/kimi-k2.7-code",
-    "@cf/openai/gpt-oss-120b",
-    "@cf/openai/gpt-oss-20b",
-    "@cf/qwen/qwen3-30b-a3b-fp8",
-    "@cf/qwen/qwen3.8-27b",
-    "@cf/zai-org/glm-5.3",
-    "@cf/zai-org/glm-5.3-flash",
+
+def _load_generated_defaults() -> tuple[
+    str, dict[str, dict[str, object]], tuple[str, ...], tuple[str, ...]
+]:
+    """Load DEFAULT_MODEL / MODEL_POLICY / PRIMARY_AGENT_MODELS /
+    FALLBACK_MODELS from the generated fixtures/plugin_defaults.json.
+
+    Guarded (same pattern as _read_protocol_version / _read_binary_version):
+    any failure - missing file, bad JSON, missing keys, wrong types - falls
+    back to a minimal built-in set with a warning; import never raises.
+    """
+    minimal_policy: dict[str, dict[str, object]] = {
+        "@cf/deepseek-ai/deepseek-v4-flash-0731": {
+            "status": "recommended",
+            "rank": 10,
+            "default": True,
+            "primary_agent_eligible": True,
+            "reason": "Validated development default.",
+        },
+    }
+    minimal: tuple[str, ...] = ("@cf/deepseek-ai/deepseek-v4-flash-0731",)
+    try:
+        path = Path(__file__).resolve().parent / "fixtures" / "plugin_defaults.json"
+        data = json.loads(path.read_text(encoding="utf-8"))
+        if not isinstance(data, dict):
+            raise TypeError("plugin_defaults.json is not an object")
+        default_model = data.get("default_model")
+        if not isinstance(default_model, str) or not default_model:
+            raise TypeError(
+                "plugin_defaults.json 'default_model' is not a non-empty string"
+            )
+        model_policy = data.get("model_policy")
+        if not isinstance(model_policy, dict) or not all(
+            isinstance(mid, str) and isinstance(entry, dict)
+            for mid, entry in model_policy.items()
+        ):
+            raise TypeError(
+                "plugin_defaults.json 'model_policy' is not an id->entry object"
+            )
+        primary = data.get("primary_agent_models")
+        if not isinstance(primary, list) or not all(
+            isinstance(mid, str) and mid for mid in primary
+        ):
+            raise TypeError(
+                "plugin_defaults.json 'primary_agent_models' is not a list of ids"
+            )
+        fallback = data.get("fallback_models")
+        if not isinstance(fallback, list) or not all(
+            isinstance(mid, str) and mid for mid in fallback
+        ):
+            raise TypeError(
+                "plugin_defaults.json 'fallback_models' is not a list of ids"
+            )
+    except Exception as exc:  # noqa: BLE001 - degrade, never crash import
+        try:
+            from providers.base import logger
+        except Exception:
+            import logging
+
+            logger = logging.getLogger(__name__)  # type: ignore[assignment]
+        logger.warning(
+            "auth-hermes-cloudflare: could not load fixtures/plugin_defaults.json (%s) - "
+            "using minimal built-in defaults; run scripts/regenerate-fixtures.py",
+            exc,
+        )
+        return (
+            "@cf/deepseek-ai/deepseek-v4-flash-0731",
+            minimal_policy,
+            minimal,
+            minimal,
+        )
+    return default_model, model_policy, tuple(primary), tuple(fallback)
+
+
+DEFAULT_MODEL, MODEL_POLICY, PRIMARY_AGENT_MODELS, FALLBACK_MODELS = (
+    _load_generated_defaults()
 )
 
 # Cloudflare OpenAI-compatible reasoning-effort wire vocabulary. The Workers AI
@@ -202,41 +239,10 @@ def _read_binary_version() -> str:
 
 BINARY_VERSION = _read_binary_version()
 
-# Account-verified Workers AI chat models - safety/classifier models
-# (llama-guard-3-8b) and non-chat modalities (embedding, image, audio, video)
-# are excluded from the primary picker. Policy-recommended models lead in
-# rank order (DeepSeek V4 Flash = default, DeepSeek V4 Pro, Kimi K2.7 Code),
-# then the remaining PRIMARY_AGENT_MODELS allow-list, then the other
-# chat-capable models. GLM-5.3 Flash stays available but experimental and
-# non-default until conformance thresholds are met.
-FALLBACK_MODELS: tuple[str, ...] = (
-    # Policy-recommended, rank order (10/20/30)
-    "@cf/deepseek-ai/deepseek-v4-flash-0731",
-    "@cf/deepseek-ai/deepseek-v4-pro-0813",
-    "@cf/moonshotai/kimi-k2.7-code",
-    # Remaining primary-agent allow-list
-    "@cf/openai/gpt-oss-120b",
-    "@cf/openai/gpt-oss-20b",
-    "@cf/qwen/qwen3-30b-a3b-fp8",
-    "@cf/qwen/qwen3.8-27b",
-    "@cf/zai-org/glm-5.3",
-    "@cf/zai-org/glm-5.3-flash",
-    # Other chat-capable models (advanced picker section)
-    "@cf/qwen/qwen2.5-coder-32b-instruct",
-    "@cf/meta/llama-4-scout-17b-16e-instruct",
-    "@cf/meta/llama-3.3-70b-instruct-fp8-fast",
-    "@cf/mistralai/mistral-small-3.1-24b-instruct",
-    "@cf/nvidia/nemotron-3-120b-a12b",
-    "@cf/ibm-granite/granite-4.0-h-micro",
-    "@cf/zai-org/glm-4.7-flash",
-    "@cf/moonshotai/kimi-k2.6",
-    "@cf/deepseek-ai/deepseek-r1-distill-qwen-32b",
-    "@cf/meta/llama-3.1-8b-instruct-fp8",
-    "@cf/meta/llama-3.2-1b-instruct",
-    "@cf/meta/llama-3.2-3b-instruct",
-    "@cf/meta/llama-3.2-11b-vision-instruct",
-    "@cf/qwen/qwq-32b",
-)
+# FALLBACK_MODELS: the generated non-hidden chat-model list from
+# fixtures/plugin_defaults.json (default first, then recommended, available,
+# experimental; safety/classifier models like llama-guard-3-8b excluded) -
+# loaded at the top of this module by _load_generated_defaults().
 
 # Non-chat modalities + safety classifiers filtered from the primary picker.
 _NON_CHAT_FRAGMENTS = (
@@ -829,7 +835,11 @@ def cloudflare_models_sync(
     """
     bin_path, incompat = _locate_usable_binary(binary)
     if bin_path is None:
-        return {"status": "error", "error": incompat or _BINARY_MISSING_MSG, "exit_code": 3}
+        return {
+            "status": "error",
+            "error": incompat or _BINARY_MISSING_MSG,
+            "exit_code": 3,
+        }
     data, error, rc = _run_binary_json(
         bin_path, ["models", "sync", "--format", "json"], timeout=CATALOG_TIMEOUT
     )
@@ -841,7 +851,11 @@ def cloudflare_models_sync(
         }
     records = data.get("models") if isinstance(data, dict) else None
     if not isinstance(records, list):
-        return {"status": "error", "error": "models sync returned no models array", "exit_code": 3}
+        return {
+            "status": "error",
+            "error": "models sync returned no models array",
+            "exit_code": 3,
+        }
     overrides = _model_overrides_from_records(records)
     model_count = len(records)
     if dry_run:
@@ -940,7 +954,11 @@ def _cloudflare_llm_request_middleware(payload: dict, **context: Any) -> dict:
     rewritten = dict(request)
     changed = False
     max_tokens = rewritten.get("max_tokens")
-    if isinstance(max_tokens, int) and not isinstance(max_tokens, bool) and max_tokens > 0:
+    if (
+        isinstance(max_tokens, int)
+        and not isinstance(max_tokens, bool)
+        and max_tokens > 0
+    ):
         rewritten.pop("max_tokens", None)
         rewritten["max_completion_tokens"] = max_tokens
         changed = True
@@ -980,7 +998,11 @@ def _cloudflare_api_error_classification(**kwargs: Any) -> dict | None:
     if not _is_cloudflare_call(kwargs):
         return None
     try:
-        status = int(kwargs.get("status_code")) if kwargs.get("status_code") is not None else 0
+        status = (
+            int(kwargs.get("status_code"))
+            if kwargs.get("status_code") is not None
+            else 0
+        )
     except (TypeError, ValueError):
         status = 0
     try:
@@ -988,23 +1010,42 @@ def _cloudflare_api_error_classification(**kwargs: Any) -> dict | None:
     except Exception:
         return None
     if status == 429:
-        return {"reason": FailoverReason.rate_limit.name, "retryable": True,
-                "should_rotate_credential": True, "message": "Cloudflare rate limit (429)"}
+        return {
+            "reason": FailoverReason.rate_limit.name,
+            "retryable": True,
+            "should_rotate_credential": True,
+            "message": "Cloudflare rate limit (429)",
+        }
     if status in (503, 529):
-        return {"reason": FailoverReason.overloaded.name, "retryable": True,
-                "message": "Cloudflare model overloaded" if status == 529 else "Cloudflare service unavailable (503)"}
+        return {
+            "reason": FailoverReason.overloaded.name,
+            "retryable": True,
+            "message": "Cloudflare model overloaded"
+            if status == 529
+            else "Cloudflare service unavailable (503)",
+        }
     if status in (500, 502):
-        return {"reason": FailoverReason.server_error.name, "retryable": True,
-                "message": "Cloudflare server error"}
+        return {
+            "reason": FailoverReason.server_error.name,
+            "retryable": True,
+            "message": "Cloudflare server error",
+        }
     if status in (401, 403):
-        return {"reason": FailoverReason.auth.name, "retryable": True,
-                "should_rotate_credential": True, "message": "Cloudflare token rejected (401/403)"}
+        return {
+            "reason": FailoverReason.auth.name,
+            "retryable": True,
+            "should_rotate_credential": True,
+            "message": "Cloudflare token rejected (401/403)",
+        }
     if status == 400:
         invalid_request = getattr(FailoverReason, "invalid_request", None)
         if invalid_request is None:
             return None
-        return {"reason": invalid_request.name, "retryable": False,
-                "message": "Cloudflare rejected the request (400) - check reasoning_effort / params"}
+        return {
+            "reason": invalid_request.name,
+            "retryable": False,
+            "message": "Cloudflare rejected the request (400) - check reasoning_effort / params",
+        }
     return None
 
 
@@ -1027,7 +1068,9 @@ def _cloudflare_on_session_start(**kwargs: Any) -> None:
     except Exception:
         from providers.base import logger
 
-        logger.debug("auth-hermes-cloudflare: session-start models sync failed", exc_info=True)
+        logger.debug(
+            "auth-hermes-cloudflare: session-start models sync failed", exc_info=True
+        )
 
 
 _HOOKS_REGISTERED = False
@@ -1270,20 +1313,20 @@ def _cloudflare_cli_catalog_export(args) -> int:
 
 
 def _cloudflare_cli_model_inspect(args) -> int:
-	return _cloudflare_cli_emit(cloudflare_model_inspect(args.model_id))
+    return _cloudflare_cli_emit(cloudflare_model_inspect(args.model_id))
 
 
 def _cloudflare_cli_models_sync(args) -> int:
-	return _cloudflare_cli_emit(cloudflare_models_sync(dry_run=args.dry_run))
+    return _cloudflare_cli_emit(cloudflare_models_sync(dry_run=args.dry_run))
 
 
 def _cloudflare_cli_bare(args) -> int:  # noqa: ARG001
-	print("Auth Cloudflare Workers AI diagnostics")
-	print(
-		"usage: hermes cloudflare doctor | setup | catalog refresh | "
-		"catalog export {yaml,markdown} | model inspect <model-id> | models sync [--dry-run]"
-	)
-	return 0
+    print("Auth Cloudflare Workers AI diagnostics")
+    print(
+        "usage: hermes cloudflare doctor | setup | catalog refresh | "
+        "catalog export {yaml,markdown} | model inspect <model-id> | models sync [--dry-run]"
+    )
+    return 0
 
 
 def _build_cloudflare_cli_parser(subparser) -> None:
@@ -1334,7 +1377,9 @@ def _build_cloudflare_cli_parser(subparser) -> None:
         "sync", help="Apply the live catalog as Hermes model_overrides config"
     )
     p_sync.add_argument(
-        "--dry-run", action="store_true", help="print the overrides without writing config"
+        "--dry-run",
+        action="store_true",
+        help="print the overrides without writing config",
     )
     p_sync.set_defaults(func=_cloudflare_cli_models_sync)
 
