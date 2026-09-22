@@ -416,7 +416,7 @@ def check_binary_compatibility(bin_path: str) -> tuple[bool, str]:
     if proc.returncode != 0:
         return False, (
             f"auth-cloudflare version exited with code {proc.returncode} - run "
-            "`auth-hermes-cloudflare install --upgrade` or "
+            "`auth-hermes-cloudflare upgrade` or "
             "`cargo install auth-cloudflare --locked --force`"
         )
     try:
@@ -439,7 +439,7 @@ def check_binary_compatibility(bin_path: str) -> tuple[bool, str]:
         return False, (
             f"auth-cloudflare catalog_schema_versions {schema_versions!r} does not "
             f"include the supported schema version {CATALOG_SCHEMA_VERSION} - run "
-            "`auth-hermes-cloudflare install --upgrade`"
+            "`auth-hermes-cloudflare upgrade`"
         )
     try:
         protocol = int(info.get("protocol_version", 0))
@@ -451,7 +451,7 @@ def check_binary_compatibility(bin_path: str) -> tuple[bool, str]:
     if protocol < PROTOCOL_VERSION:
         return False, (
             f"auth-cloudflare protocol {protocol} is older than the required "
-            f"{PROTOCOL_VERSION} - run `auth-hermes-cloudflare install --upgrade`"
+            f"{PROTOCOL_VERSION} - run `auth-hermes-cloudflare upgrade`"
         )
     package_version = info.get("package_version")
     if not _valid_semver(package_version):
@@ -463,7 +463,7 @@ def check_binary_compatibility(bin_path: str) -> tuple[bool, str]:
     if actual is not None and required is not None and actual < required:
         return False, (
             f"auth-cloudflare package_version {package_version} is older than the "
-            f"required {BINARY_VERSION} - run `auth-hermes-cloudflare install --upgrade`"
+            f"required {BINARY_VERSION} - run `auth-hermes-cloudflare upgrade`"
         )
     return True, f"auth-cloudflare {package_version} (protocol {protocol}) compatible"
 
