@@ -23,8 +23,17 @@ SYNTHETIC_TOKEN = "cfut_test_environment_only"  # never a real credential
 class EnvironmentTest(unittest.TestCase):
     def setUp(self):
         self._saved = dict(os.environ)
+        # Isolate the disk fallbacks api_token()/account_id() now consult
+        # (the real ~/.hermes/.env and credential pool would otherwise leak
+        # into "missing value" assertions). Restored in tearDown.
+        self._saved_dotenv = plugin._dotenv_value
+        self._saved_pool = plugin._pool_api_token
+        plugin._dotenv_value = lambda key: None
+        plugin._pool_api_token = lambda provider: None
 
     def tearDown(self):
+        plugin._dotenv_value = self._saved_dotenv
+        plugin._pool_api_token = self._saved_pool
         os.environ.clear()
         os.environ.update(self._saved)
 

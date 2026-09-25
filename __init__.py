@@ -32,7 +32,7 @@ is authoritative, and without it ``fetch_models`` returns the static
 never performs direct in-process HTTP catalog discovery.
 
 Hermes-native diagnostics:
-``cloudflare_doctor()``, ``cloudflare_setup()``,
+``cloudflare_doctor()``, ``cloudflare_setup()``, ``cloudflare_auth()``,
 ``cloudflare_catalog_refresh()``, ``cloudflare_catalog_export()``,
 ``cloudflare_model_inspect()`` plus the
 ``CLI_COMMANDS`` dispatch table and ``cloudflare_command()`` router. Each
@@ -302,14 +302,83 @@ def _env(*names: str) -> str | None:
     return None
 
 
+def _dotenv_value(key: str) -> str | None:
+    """First non-empty ``key=`` value in ``~/.hermes/.env``, or None.
+
+    Delegated subagents are spawned with a FRESH environment (they never
+    inherit the parent session's exports), so credentials configured only in
+    the process env are invisible to them. ``~/.hermes/.env`` is read from
+    disk by every process, so the plugin's own resolution falls back to it
+    the same way stock ``get_env_value_prefer_dotenv`` does. Guarded: any
+    read failure degrades to None, never raises. Values are never printed.
+    """
+    try:
+        env_path = Path.home() / ".hermes" / ".env"
+        if not env_path.is_file():
+            return None
+        prefix = f"{key}="
+        for line in env_path.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if line.startswith(prefix):
+                value = line[len(prefix):].strip()
+                if value:
+                    return value
+    except Exception:
+        return None
+    return None
+
+
+def _pool_api_token(provider: str) -> str | None:
+    """First usable access token from Hermes' credential pool, or None.
+
+    The credential pool is Hermes' on-disk auth store (``hermes auth add`` /
+    ``hermes auth list``). A token registered there resolves for EVERY
+    process - including delegated subagents with a fresh environment -
+    because stock ``_resolve_api_key_provider_secret`` falls back to the pool
+    after env/.env. Guarded: any failure (core absent, pool malformed)
+    degrades to None, never raises.
+    """
+    try:
+        from agent.credential_pool import load_pool
+
+        pool = load_pool(provider)
+        if pool is None:
+            return None
+        for entry in pool.entries():
+            token = (getattr(entry, "runtime_api_key", "") or "").strip()
+            if token:
+                return token
+    except Exception:
+        return None
+    return None
+
+
 def account_id() -> str | None:
-    """The configured account id (AUTH_CLOUDFLARE_* then CLOUDFLARE_*), or None."""
-    return _env(AUTH_ACCOUNT_ENV, ACCOUNT_ENV)
+    """The configured account id (AUTH_CLOUDFLARE_* then CLOUDFLARE_*), or None.
+
+    Falls back to ``~/.hermes/.env`` so subagent processes (fresh env)
+    resolve the account id from disk.
+    """
+    return _env(AUTH_ACCOUNT_ENV, ACCOUNT_ENV) or _dotenv_value(ACCOUNT_ENV)
 
 
 def api_token() -> str | None:
-    """The configured API token (never printed), or None."""
-    return _env(AUTH_TOKEN_ENV, TOKEN_ENV)
+    """The configured API token (never printed), or None.
+
+    Resolution order: process env (canonical then legacy) -> ``~/.hermes/.env``
+    -> Hermes' credential pool. The pool fallback is what lets delegated
+    subagents authenticate: their environment is fresh, but the pool is read
+    from disk by every process (``hermes cloudflare auth`` registers the key
+    there).
+    """
+    token = _env(AUTH_TOKEN_ENV, TOKEN_ENV) or _dotenv_value(TOKEN_ENV)
+    if token:
+        return token
+    for provider in (cloudflare.name, "cloudflare"):
+        token = _pool_api_token(provider)
+        if token:
+            return token
+    return None
 
 
 def inference_base_url() -> str:
@@ -1190,10 +1259,11 @@ def cloudflare_model_inspect(model_id: str, binary: str | None = None) -> dict:
 
 CLI_COMMANDS: dict[str, object] = {
     "doctor": cloudflare_doctor,
-    # NOTE: "setup" is intentionally NOT in this table - cloudflare_setup is
-    # defined later in the module (after validate_setup), so referencing it
-    # here would raise NameError at import. The cloudflare_command() router
-    # and the argparse handler dispatch "setup" at call time instead.
+    # NOTE: "setup" and "auth" are intentionally NOT in this table -
+    # cloudflare_setup / cloudflare_auth are defined later in the module
+    # (after validate_setup), so referencing them here would raise NameError
+    # at import. The cloudflare_command() router and the argparse handler
+    # dispatch them at call time instead.
     "catalog refresh": cloudflare_catalog_refresh,
     "catalog export": cloudflare_catalog_export,
     "model inspect": cloudflare_model_inspect,
@@ -1215,7 +1285,7 @@ def cloudflare_command(cmd: str, **kwargs) -> dict:
     if not parts:
         return {
             "status": "error",
-            "error": "usage: cloudflare doctor | setup | catalog refresh | "
+            "error": "usage: cloudflare doctor | setup | auth | catalog refresh | "
             "catalog export <yaml|markdown> | model inspect <model-id>",
             "exit_code": 2,
         }
@@ -1224,6 +1294,8 @@ def cloudflare_command(cmd: str, **kwargs) -> dict:
         return cloudflare_doctor(**kwargs)
     if head == "setup":
         return cloudflare_setup(**kwargs)
+    if head == "auth":
+        return cloudflare_auth(**kwargs)
     if head == "catalog":
         if len(parts) < 2:
             return {
@@ -1300,6 +1372,10 @@ def _cloudflare_cli_setup(args) -> int:  # noqa: ARG001 - argparse namespace
     return _cloudflare_cli_emit(cloudflare_setup())
 
 
+def _cloudflare_cli_auth(args) -> int:  # noqa: ARG001 - argparse namespace
+    return _cloudflare_cli_emit(cloudflare_auth())
+
+
 def _cloudflare_cli_catalog_refresh(args) -> int:  # noqa: ARG001
     return _cloudflare_cli_emit(cloudflare_catalog_refresh())
 
@@ -1323,17 +1399,17 @@ def _cloudflare_cli_models_sync(args) -> int:
 def _cloudflare_cli_bare(args) -> int:  # noqa: ARG001
     print("Auth Cloudflare Workers AI diagnostics")
     print(
-        "usage: hermes cloudflare doctor | setup | catalog refresh | "
+        "usage: hermes cloudflare doctor | setup | auth | catalog refresh | "
         "catalog export {yaml,markdown} | model inspect <model-id> | models sync [--dry-run]"
     )
     return 0
 
 
 def _build_cloudflare_cli_parser(subparser) -> None:
-    """Build the ``hermes cloudflare`` argparse tree (doctor/setup/catalog/model)."""
+    """Build the ``hermes cloudflare`` argparse tree (doctor/setup/auth/catalog/model)."""
     sub = subparser.add_subparsers(
         dest="cloudflare_cmd",
-        metavar="{doctor,setup,catalog,model}",
+        metavar="{doctor,setup,auth,catalog,model,models}",
         help="Auth Cloudflare Workers AI diagnostics",
     )
 
@@ -1348,6 +1424,15 @@ def _build_cloudflare_cli_parser(subparser) -> None:
         "(CLOUDFLARE_BASE_URL) and validate setup",
     )
     p_setup.set_defaults(func=_cloudflare_cli_setup)
+
+    p_auth = sub.add_parser(
+        "auth",
+        help="Register the configured API token into Hermes' auth store "
+        "(credential pool) so every agent - including delegated subagents "
+        "with a fresh environment - can use it; prunes the junk "
+        "account-id-as-key entry and clears exhaustion",
+    )
+    p_auth.set_defaults(func=_cloudflare_cli_auth)
 
     p_catalog = sub.add_parser(
         "catalog", help="Catalog operations: refresh (live) or export (yaml|markdown)"
@@ -1753,6 +1838,122 @@ def cloudflare_setup() -> dict:
     }
 
 
+def cloudflare_auth() -> dict:
+    """Register the configured API token into Hermes' auth store.
+
+    ``hermes auth add``-style credential-pool registration for the plugin:
+    the token resolved from env / ``~/.hermes/.env`` becomes a manual pool
+    credential (source ``manual``) under every provider name the pool keys
+    (the canonical plugin name and its ``cloudflare`` alias), replacing the
+    env-seeded rows. Because the credential pool lives on disk, ANY agent -
+    including delegated subagents spawned with a fresh environment - resolves
+    the key from ``agent.credential_pool`` instead of failing with
+    ``No API key found`` / 401.
+
+    Also: prunes the junk entry the pool seeds from ``CLOUDFLARE_ACCOUNT_ID``
+    (the account id is an auth PARAMETER, never an API key - using it as one
+    is exactly the 401 ``Authentication error`` the pool produced after the
+    real token was rate-limited), clears exhaustion on the provider's
+    entries, and persists the token/account/base URL to ``~/.hermes/.env``
+    when missing. Never prints the token; the account id is redacted.
+    """
+    token = api_token()
+    account = account_id()
+    if not token:
+        return {
+            "status": "error",
+            "error": (
+                "CLOUDFLARE_API_TOKEN is not configured - add it to "
+                "~/.hermes/.env (or export it) and re-run `hermes cloudflare auth`"
+            ),
+            "exit_code": 1,
+        }
+    if not account:
+        return {
+            "status": "error",
+            "error": (
+                "CLOUDFLARE_ACCOUNT_ID is not configured - add it to "
+                "~/.hermes/.env and re-run `hermes cloudflare auth`"
+            ),
+            "exit_code": 1,
+        }
+
+    try:
+        from agent.credential_pool import (
+            AUTH_TYPE_API_KEY,
+            SOURCE_MANUAL,
+            PooledCredential,
+            load_pool,
+        )
+        import uuid
+    except Exception as exc:
+        return {
+            "status": "error",
+            "error": f"could not load the Hermes credential pool: {exc}",
+            "exit_code": 1,
+        }
+
+    providers = (cloudflare.name, "cloudflare")
+    registered: dict[str, int] = {}
+    pruned: list[str] = []
+    cleared = 0
+    for provider in providers:
+        try:
+            pool = load_pool(provider)
+            if pool is None:
+                continue
+            # Prune junk: the account id seeded as an api-key credential
+            # (the 401 source) and stale env-seeded token rows - the fresh
+            # manual entry below replaces them.
+            for entry in list(pool.entries()):
+                label = (getattr(entry, "label", "") or "").strip()
+                if label in (ACCOUNT_ENV, AUTH_ACCOUNT_ENV, TOKEN_ENV, AUTH_TOKEN_ENV):
+                    idx, _, _ = pool.resolve_target(entry.id)
+                    if idx is not None:
+                        pool.remove_index(idx)
+                        pruned.append(f"{provider}:{label}")
+            entry = PooledCredential(
+                provider=provider,
+                id=uuid.uuid4().hex[:6],
+                label=TOKEN_ENV,
+                auth_type=AUTH_TYPE_API_KEY,
+                priority=0,
+                source=SOURCE_MANUAL,
+                access_token=token,
+                base_url=inference_base_url(),
+            )
+            pool.add_entry(entry)
+            cleared += pool.reset_statuses()
+            registered[provider] = len(pool.entries())
+        except Exception as exc:
+            return {
+                "status": "error",
+                "error": f"could not register the {provider} credential: {exc}",
+                "exit_code": 1,
+            }
+
+    # Persist to ~/.hermes/.env when missing so the next gateway start also
+    # sees them (never overwrites an existing value; never prints values).
+    persisted: list[str] = []
+    for key, value in (
+        (TOKEN_ENV, token),
+        (ACCOUNT_ENV, account),
+        (BASE_URL_ENV, inference_base_url()),
+    ):
+        if not _dotenv_value(key) and _persist_env_value(key, value):
+            persisted.append(key)
+
+    return {
+        "status": "ok",
+        "providers": registered,
+        "pruned": pruned,
+        "cleared_exhaustion": cleared,
+        "persisted_env": persisted,
+        "account_id": _redact_account_id(account),
+        "setup": validate_setup(),
+    }
+
+
 # Module-level instance + registration - the exact contract every bundled
 # provider follows (import side effect: profile joins the registry, so
 # list_providers()/the model picker see it immediately). URLs are LAZY (see
@@ -1774,7 +1975,7 @@ cloudflare = CloudflareProfile(
         "Cloudflare-hosted Workers AI models, with account-aware discovery"
     ),
     signup_url="https://dash.cloudflare.com/profile/api-tokens",
-    env_vars=(TOKEN_ENV, ACCOUNT_ENV, BASE_URL_ENV),
+    env_vars=(TOKEN_ENV, BASE_URL_ENV),
     api_mode="chat_completions",
     auth_type="api_key",
     default_aux_model=DEFAULT_MODEL,
@@ -1786,6 +1987,13 @@ cloudflare = CloudflareProfile(
     # ProviderConfig.base_url_env_var, and 'hermes cloudflare setup' writes
     # the derived URL there - the setup wizard pre-fills it, never prompts
     # the user to type an override. URLs stay LAZY (see CloudflareProfile).
+    # ACCOUNT_ENV is deliberately NOT in env_vars: stock
+    # _api_key_env_fields(env_vars) treats every non-URL var as an api-key
+    # credential, so an account id there seeds the credential pool with a
+    # fake key that is tried after the real token is rate-limited -> the
+    # exact 401 'Authentication error' delegated agents saw. The account id
+    # is read directly (account_id()) for URL derivation, and
+    # 'hermes cloudflare auth' registers the token in the pool.
     supports_health_check=False,
 )
 # fixed_base_url: a legacy core flag (patched pre-2026-09-11 hermes-agent
