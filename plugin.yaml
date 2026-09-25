@@ -1,5 +1,5 @@
 name: auth-hermes-cloudflare
-version: 0.0.6
+version: 0.0.7
 description: "Auth Cloudflare Workers AI model-provider plugin - direct OpenAI-compatible access to Cloudflare-hosted Workers AI models with account-aware catalog discovery. DeepSeek V4 Flash is the development default; GLM-5.3 Flash is experimental."
 kind: model-provider
 min_hermes_version: "0.16.0"
