@@ -55,12 +55,11 @@ class RealBinaryTest(unittest.TestCase):
         return bin_path
 
     def _set_synthetic_creds(self) -> None:
-        # Canonical names override anything real; legacy names are popped so
-        # no real value can leak through the binary's resolution either.
-        os.environ[plugin.AUTH_ACCOUNT_ENV] = SYNTHETIC_ACCOUNT
-        os.environ[plugin.AUTH_TOKEN_ENV] = SYNTHETIC_TOKEN
-        os.environ.pop(plugin.ACCOUNT_ENV, None)
-        os.environ.pop(plugin.TOKEN_ENV, None)
+            # The plain CLOUDFLARE_* names are canonical; setting them to
+            # synthetic values guarantees no real credential can leak through
+            # the binary's resolution either.
+            os.environ[plugin.ACCOUNT_ENV] = SYNTHETIC_ACCOUNT
+            os.environ[plugin.TOKEN_ENV] = SYNTHETIC_TOKEN
 
     def test_real_locator_finds_installed_binary(self):
         bin_path = plugin.locate_auth_cloudflare_binary()
@@ -115,8 +114,7 @@ class RealBinaryTest(unittest.TestCase):
     def test_real_binary_missing_creds_exits_2_relayed(self):
         self._locate_or_skip()
         self._set_synthetic_creds()
-        # Only the token stays configured; every account env is cleared.
-        os.environ.pop(plugin.AUTH_ACCOUNT_ENV, None)
+        # Only the token stays configured; the account env is cleared.
         os.environ.pop(plugin.ACCOUNT_ENV, None)
         result = plugin.cloudflare_doctor()
         self.assertEqual(result.get("source"), "binary")

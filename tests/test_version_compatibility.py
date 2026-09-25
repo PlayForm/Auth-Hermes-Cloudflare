@@ -147,8 +147,7 @@ class VersionCompatibilityTest(unittest.TestCase):
         for var in (
             "CLOUDFLARE_API_TOKEN",
             "CLOUDFLARE_ACCOUNT_ID",
-            "AUTH_CLOUDFLARE_API_TOKEN",
-            "AUTH_CLOUDFLARE_ACCOUNT_ID",
+            "CLOUDFLARE_BASE_URL",
         ):
             self.assertIn(var, text)
 

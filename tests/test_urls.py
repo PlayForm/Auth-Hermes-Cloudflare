@@ -31,7 +31,7 @@ class UrlTest(unittest.TestCase):
     def setUp(self):
         os.environ.pop(plugin.BASE_URL_ENV, None)
         self._saved = dict(os.environ)
-        os.environ[plugin.AUTH_ACCOUNT_ENV] = ACCOUNT
+        os.environ[plugin.ACCOUNT_ENV] = ACCOUNT
         # Isolate the disk fallbacks account_id() now consults: the real
         # ~/.hermes/.env would leak the live account id into "without
         # account" assertions. Restored in tearDown.
@@ -70,12 +70,12 @@ class UrlTest(unittest.TestCase):
         self.assertFalse(path.endswith("/models"))
 
     def test_catalog_url_none_without_account(self):
-        os.environ.pop(plugin.AUTH_ACCOUNT_ENV, None)
+        os.environ.pop(plugin.ACCOUNT_ENV, None)
         os.environ.pop(plugin.ACCOUNT_ENV, None)
         self.assertIsNone(plugin.catalog_url())
 
     def test_inference_url_placeholder_without_account(self):
-        os.environ.pop(plugin.AUTH_ACCOUNT_ENV, None)
+        os.environ.pop(plugin.ACCOUNT_ENV, None)
         os.environ.pop(plugin.ACCOUNT_ENV, None)
         self.assertEqual(
             plugin.inference_base_url(),
@@ -89,7 +89,7 @@ class UrlTest(unittest.TestCase):
         self.assertEqual(plugin.cloudflare.models_url, plugin.catalog_url())
 
     def test_models_url_empty_without_account(self):
-        os.environ.pop(plugin.AUTH_ACCOUNT_ENV, None)
+        os.environ.pop(plugin.ACCOUNT_ENV, None)
         os.environ.pop(plugin.ACCOUNT_ENV, None)
         self.assertEqual(plugin.cloudflare.models_url, "")
 

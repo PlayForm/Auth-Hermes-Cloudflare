@@ -31,8 +31,8 @@ TOKEN = "cfut_test_" + "x" * 32  # synthetic, never a real credential
 class TokenRedactionTest(unittest.TestCase):
     def setUp(self):
         self._saved_env = dict(os.environ)
-        os.environ[plugin.AUTH_ACCOUNT_ENV] = ACCOUNT
-        os.environ[plugin.AUTH_TOKEN_ENV] = TOKEN
+        os.environ[plugin.ACCOUNT_ENV] = ACCOUNT
+        os.environ[plugin.TOKEN_ENV] = TOKEN
         # Force the static-fallback path (the binary is installed on dev
         # machines and is binary-first; delegation is covered by
         # test_binary_discovery.py).

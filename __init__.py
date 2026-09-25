@@ -8,10 +8,9 @@ OpenAI-compatible Workers AI surface:
               (OpenRouter-compatible format; NOT OpenAI's ``/models``)
 - Verify:     ``GET  /client/v4/user/tokens/verify``
 
-The account ID is injected from the environment (``CLOUDFLARE_ACCOUNT_ID`` /
-``AUTH_CLOUDFLARE_ACCOUNT_ID``); the API token (``CLOUDFLARE_API_TOKEN`` /
-``AUTH_CLOUDFLARE_API_TOKEN``) is a secret and is only ever sent as a Bearer
-header - never logged, never echoed.
+The account ID is injected from the environment (``CLOUDFLARE_ACCOUNT_ID``);
+the API token (``CLOUDFLARE_API_TOKEN``) is a secret and is only ever sent as
+a Bearer header - never logged, never echoed.
 
 The base URL is DERIVED from the account ID. The profile declares
 ``CLOUDFLARE_BASE_URL`` (a ``*_BASE_URL`` env var) in ``env_vars``, so stock
@@ -73,12 +72,8 @@ from providers import register_provider
 from providers.base import ProviderProfile
 
 API_BASE = "https://api.cloudflare.com/client/v4"
-# Legacy Hermes-compatible env names (primary), Auth-Cloudflare canonical
-# names (fallback) - the Rust core owns the resolution precedence.
 TOKEN_ENV = "CLOUDFLARE_API_TOKEN"
 ACCOUNT_ENV = "CLOUDFLARE_ACCOUNT_ID"
-AUTH_TOKEN_ENV = "AUTH_CLOUDFLARE_API_TOKEN"
-AUTH_ACCOUNT_ENV = "AUTH_CLOUDFLARE_ACCOUNT_ID"
 # The `*_BASE_URL` suffix is what stock Hermes
 # (hermes_cli/auth._register_plugin_provider) uses to detect the base-URL env
 # var and map it to ProviderConfig.base_url_env_var, which the setup wizard
@@ -354,24 +349,23 @@ def _pool_api_token(provider: str) -> str | None:
 
 
 def account_id() -> str | None:
-    """The configured account id (AUTH_CLOUDFLARE_* then CLOUDFLARE_*), or None.
+    """The configured account id (``CLOUDFLARE_ACCOUNT_ID``), or None.
 
-    Falls back to ``~/.hermes/.env`` so subagent processes (fresh env)
-    resolve the account id from disk.
+    Resolution order: process env -> ``~/.hermes/.env``. The disk fallback
+    lets subagent processes (fresh env) resolve the account id from disk.
     """
-    return _env(AUTH_ACCOUNT_ENV, ACCOUNT_ENV) or _dotenv_value(ACCOUNT_ENV)
+    return _env(ACCOUNT_ENV) or _dotenv_value(ACCOUNT_ENV)
 
 
 def api_token() -> str | None:
     """The configured API token (never printed), or None.
 
-    Resolution order: process env (canonical then legacy) -> ``~/.hermes/.env``
-    -> Hermes' credential pool. The pool fallback is what lets delegated
-    subagents authenticate: their environment is fresh, but the pool is read
-    from disk by every process (``hermes cloudflare auth`` registers the key
-    there).
+    Resolution order: process env -> ``~/.hermes/.env`` -> Hermes' credential
+    pool. The pool fallback is what lets delegated subagents authenticate:
+    their environment is fresh, but the pool is read from disk by every
+    process (``hermes cloudflare auth`` registers the key there).
     """
-    token = _env(AUTH_TOKEN_ENV, TOKEN_ENV) or _dotenv_value(TOKEN_ENV)
+    token = _env(TOKEN_ENV) or _dotenv_value(TOKEN_ENV)
     if token:
         return token
     for provider in (cloudflare.name, "cloudflare"):
@@ -1907,7 +1901,7 @@ def cloudflare_auth() -> dict:
             # manual entry below replaces them.
             for entry in list(pool.entries()):
                 label = (getattr(entry, "label", "") or "").strip()
-                if label in (ACCOUNT_ENV, AUTH_ACCOUNT_ENV, TOKEN_ENV, AUTH_TOKEN_ENV):
+                if label in (ACCOUNT_ENV, TOKEN_ENV):
                     idx, _, _ = pool.resolve_target(entry.id)
                     if idx is not None:
                         pool.remove_index(idx)

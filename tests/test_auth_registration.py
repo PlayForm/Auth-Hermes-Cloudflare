@@ -114,7 +114,7 @@ class EnvVarsShapeTest(unittest.TestCase):
     def test_env_vars_exclude_account_id(self):
         # The account id is an auth PARAMETER, never an api-key credential.
         self.assertNotIn(plugin.ACCOUNT_ENV, plugin.cloudflare.env_vars)
-        self.assertNotIn(plugin.AUTH_ACCOUNT_ENV, plugin.cloudflare.env_vars)
+        self.assertNotIn(plugin.ACCOUNT_ENV, plugin.cloudflare.env_vars)
 
     def test_env_vars_keep_token_and_base_url(self):
         self.assertIn(plugin.TOKEN_ENV, plugin.cloudflare.env_vars)
@@ -126,6 +126,10 @@ class ApiTokenFallbackTest(unittest.TestCase):
         self._saved = dict(os.environ)
         self._tmp = tempfile.TemporaryDirectory()
         os.environ["HOME"] = self._tmp.name
+        # Ambient real credentials must not leak in: the plain names are the
+        # sole credential contract now.
+        os.environ.pop(plugin.ACCOUNT_ENV, None)
+        os.environ.pop(plugin.TOKEN_ENV, None)
         # Isolate the pool fallback: the real auth.json must not leak in.
         self._saved_pool = plugin._pool_api_token
         plugin._pool_api_token = lambda provider: None
@@ -164,6 +168,10 @@ class ApiTokenPoolFallbackTest(unittest.TestCase):
         self._saved = dict(os.environ)
         self._tmp = tempfile.TemporaryDirectory()
         os.environ["HOME"] = self._tmp.name
+        # Ambient real credentials must not leak in: the plain names are the
+        # sole credential contract now.
+        os.environ.pop(plugin.ACCOUNT_ENV, None)
+        os.environ.pop(plugin.TOKEN_ENV, None)
         self._saved_dotenv = plugin._dotenv_value
         plugin._dotenv_value = lambda key: None
 

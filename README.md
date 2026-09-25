@@ -139,14 +139,13 @@ loaded.
 
 ## Configuration ⚙️
 
-Two environment variables drive everything. The `AUTH_CLOUDFLARE_*` names
-are canonical; the `CLOUDFLARE_*` names are the legacy Hermes-compatible
-aliases - the Rust core owns the resolution precedence.
+Two environment variables drive everything: `CLOUDFLARE_ACCOUNT_ID` (the
+account ID) and `CLOUDFLARE_API_TOKEN` (the API token).
 
 | Variable                                               | Role                                                      |
 | :----------------------------------------------------- | :-------------------------------------------------------- |
-| `CLOUDFLARE_ACCOUNT_ID` / `AUTH_CLOUDFLARE_ACCOUNT_ID` | account ID - operational metadata, not a secret           |
-| `CLOUDFLARE_API_TOKEN` / `AUTH_CLOUDFLARE_API_TOKEN`   | API token - a secret, only ever sent as a `Bearer` header |
+| `CLOUDFLARE_ACCOUNT_ID`                              | account ID - operational metadata, not a secret           |
+| `CLOUDFLARE_API_TOKEN`                               | API token - a secret, only ever sent as a `Bearer` header |
 
 ```bash
 export CLOUDFLARE_ACCOUNT_ID="<your account id>"
@@ -169,8 +168,8 @@ credential, and clears exhaustion:
 hermes cloudflare auth
 ```
 
-Resolution order for the token: process env (`AUTH_CLOUDFLARE_API_TOKEN` /
-`CLOUDFLARE_API_TOKEN`) → `~/.hermes/.env` → Hermes credential pool. The
+Resolution order for the token: process env (`CLOUDFLARE_API_TOKEN`) →
+`~/.hermes/.env` → Hermes credential pool. The
 account ID is an auth _parameter_, not a key - it is deliberately excluded
 from the profile's `env_vars` so stock core never treats it as a credential.
 

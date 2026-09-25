@@ -2,9 +2,8 @@
 
 Contract under test:
 
-- Canonical ``AUTH_CLOUDFLARE_*`` variables override legacy ``CLOUDFLARE_*``
-  variables when both are set.
-- Legacy variables are used when no canonical value is present.
+- The account ID and API token are read from the canonical
+  ``CLOUDFLARE_ACCOUNT_ID`` / ``CLOUDFLARE_API_TOKEN`` variables.
 - Whitespace-only values are treated as missing (``_env`` strips).
 """
 
@@ -37,66 +36,29 @@ class EnvironmentTest(unittest.TestCase):
         os.environ.clear()
         os.environ.update(self._saved)
 
-    def test_auth_account_overrides_legacy(self):
-        os.environ[plugin.AUTH_ACCOUNT_ENV] = "auth-acct-123"
-        os.environ[plugin.ACCOUNT_ENV] = "legacy-acct-456"
-        self.assertEqual(plugin.account_id(), "auth-acct-123")
-
-    def test_auth_token_overrides_legacy(self):
-        os.environ[plugin.AUTH_TOKEN_ENV] = SYNTHETIC_TOKEN
-        os.environ[plugin.TOKEN_ENV] = "cfut_test_legacy_token"
-        self.assertEqual(plugin.api_token(), SYNTHETIC_TOKEN)
-
-    def test_legacy_account_used_when_auth_missing(self):
-        os.environ.pop(plugin.AUTH_ACCOUNT_ENV, None)
-        os.environ[plugin.ACCOUNT_ENV] = "legacy-acct-456"
-        self.assertEqual(plugin.account_id(), "legacy-acct-456")
-
-    def test_legacy_token_used_when_auth_missing(self):
-        os.environ.pop(plugin.AUTH_TOKEN_ENV, None)
-        os.environ[plugin.TOKEN_ENV] = "cfut_test_legacy_token"
-        self.assertEqual(plugin.api_token(), "cfut_test_legacy_token")
-
-    def test_whitespace_only_auth_account_treated_missing(self):
-        os.environ[plugin.AUTH_ACCOUNT_ENV] = "   \t  "
-        os.environ[plugin.ACCOUNT_ENV] = "legacy-acct-456"
-        self.assertEqual(plugin.account_id(), "legacy-acct-456")
-
-    def test_whitespace_only_auth_token_treated_missing(self):
-        os.environ[plugin.AUTH_TOKEN_ENV] = " \n "
-        os.environ[plugin.TOKEN_ENV] = "cfut_test_legacy_token"
-        self.assertEqual(plugin.api_token(), "cfut_test_legacy_token")
-
     def test_all_whitespace_account_returns_none(self):
-        os.environ[plugin.AUTH_ACCOUNT_ENV] = "   "
-        os.environ[plugin.ACCOUNT_ENV] = "\t "
+        os.environ[plugin.ACCOUNT_ENV] = "   "
         self.assertIsNone(plugin.account_id())
 
     def test_all_whitespace_token_returns_none(self):
-        os.environ[plugin.AUTH_TOKEN_ENV] = " "
         os.environ[plugin.TOKEN_ENV] = "  "
         self.assertIsNone(plugin.api_token())
 
     def test_empty_string_returns_none(self):
-        os.environ.pop(plugin.AUTH_ACCOUNT_ENV, None)
         os.environ[plugin.ACCOUNT_ENV] = ""
         self.assertIsNone(plugin.account_id())
 
     def test_missing_variables_return_none(self):
-        os.environ.pop(plugin.AUTH_ACCOUNT_ENV, None)
         os.environ.pop(plugin.ACCOUNT_ENV, None)
-        os.environ.pop(plugin.AUTH_TOKEN_ENV, None)
         os.environ.pop(plugin.TOKEN_ENV, None)
         self.assertIsNone(plugin.account_id())
         self.assertIsNone(plugin.api_token())
 
     def test_env_constant_names_are_exact(self):
-        self.assertEqual(plugin.AUTH_ACCOUNT_ENV, "AUTH_CLOUDFLARE_ACCOUNT_ID")
-        self.assertEqual(plugin.AUTH_TOKEN_ENV, "AUTH_CLOUDFLARE_API_TOKEN")
         self.assertEqual(plugin.ACCOUNT_ENV, "CLOUDFLARE_ACCOUNT_ID")
         self.assertEqual(plugin.TOKEN_ENV, "CLOUDFLARE_API_TOKEN")
 
-    def test_profile_env_vars_list_legacy_token_and_base_url(self):
+    def test_profile_env_vars(self):
         # The account id is deliberately NOT an env_vars entry: stock
         # _api_key_env_fields(env_vars) treats every non-URL var as an
         # api-key credential, so including it seeds the credential pool with
@@ -105,7 +67,6 @@ class EnvironmentTest(unittest.TestCase):
         self.assertIn(plugin.TOKEN_ENV, profile.env_vars)
         self.assertIn(plugin.BASE_URL_ENV, profile.env_vars)
         self.assertNotIn(plugin.ACCOUNT_ENV, profile.env_vars)
-        self.assertNotIn(plugin.AUTH_ACCOUNT_ENV, profile.env_vars)
 
 
 if __name__ == "__main__":

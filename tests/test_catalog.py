@@ -37,8 +37,8 @@ LLAMA_GUARD = "@cf/meta/llama-guard-3-8b"
 class CatalogTest(unittest.TestCase):
     def setUp(self):
         self._saved_env = dict(os.environ)
-        os.environ[plugin.AUTH_ACCOUNT_ENV] = ACCOUNT
-        os.environ[plugin.AUTH_TOKEN_ENV] = SYNTHETIC_TOKEN
+        os.environ[plugin.ACCOUNT_ENV] = ACCOUNT
+        os.environ[plugin.TOKEN_ENV] = SYNTHETIC_TOKEN
         # The auth-cloudflare binary is installed on dev machines; these tests
         # assert the static-fallback path, so force the locator to None
         # (binary-first delegation has its own coverage in
@@ -74,9 +74,9 @@ class CatalogTest(unittest.TestCase):
     def test_fallback_returned_even_without_account_or_token(self):
         # The static fallback is credential-independent: no account or token
         # is required, and no request is ever made.
-        os.environ.pop(plugin.AUTH_ACCOUNT_ENV, None)
         os.environ.pop(plugin.ACCOUNT_ENV, None)
-        os.environ.pop(plugin.AUTH_TOKEN_ENV, None)
+        os.environ.pop(plugin.ACCOUNT_ENV, None)
+        os.environ.pop(plugin.TOKEN_ENV, None)
         os.environ.pop(plugin.TOKEN_ENV, None)
         result = plugin.cloudflare.fetch_models()
         self.assertEqual(result, list(plugin.FALLBACK_MODELS))
