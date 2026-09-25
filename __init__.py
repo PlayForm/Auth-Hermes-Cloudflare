@@ -320,7 +320,7 @@ def _dotenv_value(key: str) -> str | None:
         for line in env_path.read_text(encoding="utf-8").splitlines():
             line = line.strip()
             if line.startswith(prefix):
-                value = line[len(prefix):].strip()
+                value = line[len(prefix) :].strip()
                 if value:
                     return value
     except Exception:

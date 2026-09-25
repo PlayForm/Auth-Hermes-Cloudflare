@@ -72,6 +72,44 @@ def _pool_entry(label, *, token=None, account=False):
     )
 
 
+def _install_fake_credential_pool(pools):
+    """Inject a hermetic ``agent.credential_pool`` into ``sys.modules``.
+
+    The real module drags in ``ruamel.yaml`` through ``hermes_yaml``, which
+    the ephemeral test env does not provide. The plugin imports the pool
+    names at call time, so a stub module with the same names is sufficient.
+    Returns the previous ``sys.modules`` entries for restoration.
+    """
+    import sys
+    from types import ModuleType
+
+    saved_agent = sys.modules.get("agent")
+    saved_pool = sys.modules.get("agent.credential_pool")
+
+    agent = ModuleType("agent")
+    fake_pool = ModuleType("agent.credential_pool")
+    fake_pool.AUTH_TYPE_API_KEY = "api_key"
+    fake_pool.SOURCE_MANUAL = "manual"
+    fake_pool.PooledCredential = SimpleNamespace
+    fake_pool.load_pool = lambda provider: pools.get(provider)
+    sys.modules["agent"] = agent
+    sys.modules["agent.credential_pool"] = fake_pool
+    return saved_agent, saved_pool
+
+
+def _restore_credential_pool(saved_agent, saved_pool):
+    import sys
+
+    if saved_agent is not None:
+        sys.modules["agent"] = saved_agent
+    else:
+        sys.modules.pop("agent", None)
+    if saved_pool is not None:
+        sys.modules["agent.credential_pool"] = saved_pool
+    else:
+        sys.modules.pop("agent.credential_pool", None)
+
+
 class EnvVarsShapeTest(unittest.TestCase):
     def test_env_vars_exclude_account_id(self):
         # The account id is an auth PARAMETER, never an api-key credential.
@@ -136,15 +174,17 @@ class ApiTokenPoolFallbackTest(unittest.TestCase):
         self._tmp.cleanup()
 
     def test_api_token_pool_fallback(self):
-        import agent.credential_pool
-
-        fake = FakePool([_pool_entry(plugin.TOKEN_ENV, token=SYNTHETIC_TOKEN)])
-        saved = agent.credential_pool.load_pool
-        agent.credential_pool.load_pool = lambda provider: fake
+        saved_agent, saved_pool = _install_fake_credential_pool(
+            {
+                "auth-cloudflare-workers-ai": FakePool(
+                    [_pool_entry(plugin.TOKEN_ENV, token=SYNTHETIC_TOKEN)]
+                )
+            }
+        )
         try:
             self.assertEqual(plugin.api_token(), SYNTHETIC_TOKEN)
         finally:
-            agent.credential_pool.load_pool = saved
+            _restore_credential_pool(saved_agent, saved_pool)
 
 
 class CloudflareAuthCommandTest(unittest.TestCase):
@@ -175,8 +215,6 @@ class CloudflareAuthCommandTest(unittest.TestCase):
         self._tmp.cleanup()
 
     def test_registers_into_pool_for_canonical_and_alias(self):
-        import agent.credential_pool
-
         pools = {
             "auth-cloudflare-workers-ai": FakePool(
                 [
@@ -186,12 +224,11 @@ class CloudflareAuthCommandTest(unittest.TestCase):
             ),
             "cloudflare": FakePool([_pool_entry(plugin.ACCOUNT_ENV, account=True)]),
         }
-        saved = agent.credential_pool.load_pool
-        agent.credential_pool.load_pool = lambda provider: pools.get(provider)
+        saved_agent, saved_pool = _install_fake_credential_pool(pools)
         try:
             result = plugin.cloudflare_auth()
         finally:
-            agent.credential_pool.load_pool = saved
+            _restore_credential_pool(saved_agent, saved_pool)
 
         self.assertEqual(result["status"], "ok")
         self.assertEqual(
@@ -211,12 +248,13 @@ class CloudflareAuthCommandTest(unittest.TestCase):
         self.assertEqual(pools["cloudflare"].resets, 1)
 
     def test_missing_token_errors_without_touching_pool(self):
-        import agent.credential_pool
-
         touched = []
-        saved = agent.credential_pool.load_pool
-        agent.credential_pool.load_pool = (
-            lambda provider: touched.append(provider) or FakePool()
+        saved_agent, saved_pool = _install_fake_credential_pool({})
+        # Track which providers load_pool was asked for.
+        import sys
+
+        sys.modules["agent.credential_pool"].load_pool = lambda provider: (
+            touched.append(provider) or None
         )
         saved_token = plugin.api_token
         plugin.api_token = lambda: None
@@ -224,18 +262,18 @@ class CloudflareAuthCommandTest(unittest.TestCase):
             result = plugin.cloudflare_auth()
         finally:
             plugin.api_token = saved_token
-            agent.credential_pool.load_pool = saved
+            _restore_credential_pool(saved_agent, saved_pool)
         self.assertEqual(result["status"], "error")
         self.assertEqual(result["exit_code"], 1)
         self.assertEqual(touched, [])
 
     def test_missing_account_errors_without_touching_pool(self):
-        import agent.credential_pool
-
         touched = []
-        saved = agent.credential_pool.load_pool
-        agent.credential_pool.load_pool = (
-            lambda provider: touched.append(provider) or FakePool()
+        saved_agent, saved_pool = _install_fake_credential_pool({})
+        import sys
+
+        sys.modules["agent.credential_pool"].load_pool = lambda provider: (
+            touched.append(provider) or None
         )
         saved_account = plugin.account_id
         plugin.account_id = lambda: None
@@ -243,7 +281,7 @@ class CloudflareAuthCommandTest(unittest.TestCase):
             result = plugin.cloudflare_auth()
         finally:
             plugin.account_id = saved_account
-            agent.credential_pool.load_pool = saved
+            _restore_credential_pool(saved_agent, saved_pool)
         self.assertEqual(result["status"], "error")
         self.assertEqual(result["exit_code"], 1)
         self.assertEqual(touched, [])

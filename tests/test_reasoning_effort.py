@@ -138,7 +138,9 @@ class ClampEffortFallbackTest(unittest.TestCase):
             )
 
     def test_fallback_passes_bespoke_names_through(self):
-        self.assertEqual(plugin._clamp_effort("balanced", ("low", "medium", "high")), "balanced")
+        self.assertEqual(
+            plugin._clamp_effort("balanced", ("low", "medium", "high")), "balanced"
+        )
 
 
 if __name__ == "__main__":

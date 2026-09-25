@@ -96,10 +96,16 @@ class EnvironmentTest(unittest.TestCase):
         self.assertEqual(plugin.ACCOUNT_ENV, "CLOUDFLARE_ACCOUNT_ID")
         self.assertEqual(plugin.TOKEN_ENV, "CLOUDFLARE_API_TOKEN")
 
-    def test_profile_env_vars_list_both_legacy_and_canonical(self):
+    def test_profile_env_vars_list_legacy_token_and_base_url(self):
+        # The account id is deliberately NOT an env_vars entry: stock
+        # _api_key_env_fields(env_vars) treats every non-URL var as an
+        # api-key credential, so including it seeds the credential pool with
+        # a fake key (the 401 source). It is read directly via account_id().
         profile = plugin.cloudflare
         self.assertIn(plugin.TOKEN_ENV, profile.env_vars)
-        self.assertIn(plugin.ACCOUNT_ENV, profile.env_vars)
+        self.assertIn(plugin.BASE_URL_ENV, profile.env_vars)
+        self.assertNotIn(plugin.ACCOUNT_ENV, profile.env_vars)
+        self.assertNotIn(plugin.AUTH_ACCOUNT_ENV, profile.env_vars)
 
 
 if __name__ == "__main__":

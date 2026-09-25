@@ -32,8 +32,17 @@ class UrlTest(unittest.TestCase):
         os.environ.pop(plugin.BASE_URL_ENV, None)
         self._saved = dict(os.environ)
         os.environ[plugin.AUTH_ACCOUNT_ENV] = ACCOUNT
+        # Isolate the disk fallbacks account_id() now consults: the real
+        # ~/.hermes/.env would leak the live account id into "without
+        # account" assertions. Restored in tearDown.
+        self._saved_dotenv = plugin._dotenv_value
+        self._saved_pool = plugin._pool_api_token
+        plugin._dotenv_value = lambda key: None
+        plugin._pool_api_token = lambda provider: None
 
     def tearDown(self):
+        plugin._dotenv_value = self._saved_dotenv
+        plugin._pool_api_token = self._saved_pool
         os.environ.clear()
         os.environ.update(self._saved)
 

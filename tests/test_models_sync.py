@@ -62,7 +62,10 @@ class ModelOverridesMappingTest(unittest.TestCase):
             [{"id": QWEN, "tool_call": True, "model_family": "qwen3"}]
         )
         self.assertIn(QWEN, overrides["cloudflare"])
-        self.assertEqual(overrides["cloudflare"][QWEN], {"supports_tools": True, "model_family": "qwen3"})
+        self.assertEqual(
+            overrides["cloudflare"][QWEN],
+            {"supports_tools": True, "model_family": "qwen3"},
+        )
 
     def test_skips_records_without_usable_fields(self):
         overrides = plugin._model_overrides_from_records(
@@ -72,7 +75,13 @@ class ModelOverridesMappingTest(unittest.TestCase):
 
     def test_reasoning_efforts_are_not_carried_into_config(self):
         overrides = plugin._model_overrides_from_records(
-            [{"id": FLASH, "reasoning": True, "reasoning_efforts": ["low", "medium", "high"]}]
+            [
+                {
+                    "id": FLASH,
+                    "reasoning": True,
+                    "reasoning_efforts": ["low", "medium", "high"],
+                }
+            ]
         )
         entry = overrides["cloudflare"][FLASH]
         self.assertEqual(entry, {"supports_reasoning": True})
@@ -94,7 +103,9 @@ class ModelOverridesMappingTest(unittest.TestCase):
         entry = overrides["cloudflare"][vision]
         self.assertEqual(entry, {"supports_tools": True, "supports_vision": True})
         # No supports_vision claim when the record does not carry it.
-        overrides = plugin._model_overrides_from_records([{"id": FLASH, "tool_call": True}])
+        overrides = plugin._model_overrides_from_records(
+            [{"id": FLASH, "tool_call": True}]
+        )
         self.assertNotIn("supports_vision", overrides["cloudflare"][FLASH])
 
 

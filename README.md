@@ -114,8 +114,9 @@ Python (provider registration)              Rust core (single source of truth)
 The Rust core owns the canonical endpoint/auth/catalog/policy logic and ships
 as a single executable, `auth-cloudflare`. The Python provider mirrors it
 in-process so the picker and wizard work with or without the executable. URLs
-are computed lazily from `os.environ` at access time, because plugin
-discovery runs before the profile `.env` is loaded.
+are computed lazily from `os.environ` (with `~/.hermes/.env` fallback) at
+access time, because plugin discovery runs before the profile `.env` is
+loaded.
 
 ---
 
@@ -152,15 +153,37 @@ export CLOUDFLARE_ACCOUNT_ID="<your account id>"
 export CLOUDFLARE_API_TOKEN="<scoped token>" # Account → Workers AI → Write
 ```
 
+### Registering the key into Hermes auth (`hermes cloudflare auth`)
+
+The token must resolve for every agent process - including **delegated
+subagents**, which are spawned with a fresh environment and never inherit
+the parent session's exports. `hermes cloudflare auth` registers the
+configured token into Hermes' auth store (the credential pool, the same
+mechanism `hermes auth add` uses) under both provider keys, prunes the junk
+account-id-as-key entry the pool seeds when the account id is misread as a
+credential, and clears exhaustion:
+
+**`Terminal`**
+
+```sh
+hermes cloudflare auth
+```
+
+Resolution order for the token: process env (`AUTH_CLOUDFLARE_API_TOKEN` /
+`CLOUDFLARE_API_TOKEN`) → `~/.hermes/.env` → Hermes credential pool. The
+account ID is an auth _parameter_, not a key - it is deliberately excluded
+from the profile's `env_vars` so stock core never treats it as a credential.
+
 ---
 
 ## Executable Flow 📦
 
 The provider path is pure Python, so this is optional. The `auth-cloudflare`
 executable backs the full command surface - `hermes cloudflare doctor /
-catalog refresh / catalog export / model inspect / models sync`, catalog
-caching, and the conformance commands (`model verify --suite smoke|tool-loop`, `model
-health`). `download.sh` installs it from GitHub Releases:
+setup / auth / catalog refresh / catalog export / model inspect / models
+sync`, catalog caching, and the conformance commands (`model verify --suite
+smoke|tool-loop`, `model health`). `download.sh` installs it from GitHub
+Releases:
 
 **`Terminal`**
 
