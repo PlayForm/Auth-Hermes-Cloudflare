@@ -1,21 +1,22 @@
 {
   "data": [
     {
-      "id": "@cf/deepseek-ai/deepseek-v4-flash-0731",
-      "name": "DeepSeek: V4 Flash (0731)",
-      "description": "Cloudflare-hosted DeepSeek V4 Flash 0731 - fast chat model with function calling and reasoning. Development default for the auth-cloudflare provider.",
+      "id": "@cf/deepseek-ai/deepseek-v4.1-flash-1017",
+      "name": "DeepSeek: V4.1 Flash (1017)",
+      "description": "Cloudflare-hosted DeepSeek V4.1 Flash 1017 - multimodal MoE chat model with function calling, reasoning and vision. Development default for the auth-cloudflare provider.",
       "pricing": {
-        "prompt": "0.44",
-        "completion": "1.32",
+        "prompt": "0.3",
+        "completion": "1.2",
         "request": "0",
         "image": "0",
         "web_search": "0",
         "internal_reasoning": "0"
       },
-      "context_length": 1310720,
+      "context_length": 1048576,
       "architecture": {
         "input_modalities": [
-          "text"
+          "text",
+          "image"
         ],
         "output_modalities": [
           "text"
@@ -41,7 +42,7 @@
         "web_search": "0",
         "internal_reasoning": "0"
       },
-      "context_length": 1310720,
+      "context_length": 1048576,
       "architecture": {
         "input_modalities": [
           "text"

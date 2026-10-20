@@ -28,7 +28,7 @@ plugin = load_plugin()
 
 ACCOUNT = "testacct0001"
 SYNTHETIC_TOKEN = "cfut_test_catalog_only"  # never a real credential
-DEEPSEEK = "@cf/deepseek-ai/deepseek-v4-flash-0731"
+DEEPSEEK = "@cf/deepseek-ai/deepseek-v4.1-flash-1017"
 GLM_FLASH = "@cf/zai-org/glm-5.3-flash"
 KIMI_CODE = "@cf/moonshotai/kimi-k2.7-code"
 LLAMA_GUARD = "@cf/meta/llama-guard-3-8b"

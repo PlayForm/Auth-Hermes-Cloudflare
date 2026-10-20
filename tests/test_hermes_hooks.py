@@ -34,12 +34,12 @@ class LlmRequestMiddlewareTest(unittest.TestCase):
 
     def test_max_tokens_becomes_max_completion_tokens(self):
         result = self._rewrite(
-            {"model": "@cf/deepseek-ai/deepseek-v4-flash-0731", "max_tokens": 2048}
+            {"model": "@cf/deepseek-ai/deepseek-v4.1-flash-1017", "max_tokens": 2048}
         )
         request = result["request"]
         self.assertNotIn("max_tokens", request)
         self.assertEqual(request["max_completion_tokens"], 2048)
-        self.assertEqual(request["model"], "@cf/deepseek-ai/deepseek-v4-flash-0731")
+        self.assertEqual(request["model"], "@cf/deepseek-ai/deepseek-v4.1-flash-1017")
         self.assertEqual(result["source"], "auth-hermes-cloudflare")
 
     def test_effort_clamps_onto_cloudflare_enum(self):
@@ -62,7 +62,7 @@ class LlmRequestMiddlewareTest(unittest.TestCase):
 
     def test_unchanged_request_returns_empty(self):
         self.assertEqual(
-            self._rewrite({"model": "@cf/deepseek-ai/deepseek-v4-flash-0731"}), {}
+            self._rewrite({"model": "@cf/deepseek-ai/deepseek-v4.1-flash-1017"}), {}
         )
 
     def test_non_cloudflare_call_untouched(self):
@@ -92,7 +92,7 @@ class ApiErrorClassificationTest(unittest.TestCase):
     def _classify(self, status_code, provider=CLOUDFLARE_PROVIDER):
         return plugin._cloudflare_api_error_classification(
             provider=provider,
-            model="@cf/deepseek-ai/deepseek-v4-flash-0731",
+            model="@cf/deepseek-ai/deepseek-v4.1-flash-1017",
             status_code=status_code,
         )
 

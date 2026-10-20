@@ -4,7 +4,8 @@ Contract under test:
 
 - Cloudflare's OpenAI-compatible chat-completions schema documents
   ``reasoning_effort`` as the enum low|medium|high (per-model docs, e.g.
-  deepseek-v4-flash-0731) - narrower than Hermes' internal ladder and than the
+  deepseek-v4-flash-0731; the v4.1 default additionally documents
+  none|low|high|max) - narrower than Hermes' internal ladder and than the
   generic OpenAI-compat wire set (none..max).
 - ``CloudflareProfile.build_api_kwargs_extras`` clamps Hermes' effort onto
   that set (nearest WEAKER, never escalating) and emits ``reasoning_effort``
@@ -23,7 +24,7 @@ from helpers import load_plugin
 
 plugin = load_plugin()
 
-CHAT_MODEL = "@cf/deepseek-ai/deepseek-v4-flash-0731"
+CHAT_MODEL = "@cf/deepseek-ai/deepseek-v4.1-flash-1017"
 GUARD_MODEL = "@cf/meta/llama-guard-3-8b"
 UNKNOWN_MODEL = "@cf/some-vendor/brand-new-model"
 

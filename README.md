@@ -1,7 +1,7 @@
 # Auth-Hermes-Cloudflare ☁️ Hermes Plugin
 
 > **Auth Cloudflare Workers AI model-provider plugin for Hermes Agent - pure Python provider + Rust core executable.**
-> **Live account-aware catalog discovery, OpenAI-compatible inference, 22-model fallback.**
+> **Live account-aware catalog discovery, OpenAI-compatible inference, 31-model fallback.**
 
 `auth-hermes-cloudflare` registers the `auth-cloudflare-workers-ai` provider
 (display name **Auth Cloudflare Workers AI**) against Cloudflare's
@@ -10,7 +10,7 @@ fetched from `/ai/models/search` in the OpenRouter format, and the provider
 shows up in `hermes model` with zero `custom_providers` wiring. **All
 endpoint/auth logic lives in the Rust core; Python is a thin provider.**
 
-[![plugin](https://img.shields.io/static/v1?label=plugin&message=v0.0.7&color=purple)](plugin.yaml)
+[![plugin](https://img.shields.io/static/v1?label=plugin&message=v0.0.8&color=purple)](plugin.yaml)
 [![hermes](https://img.shields.io/static/v1?label=hermes&message=%E2%89%A50.16.0&color=blue)](https://github.com/NousResearch/hermes-agent)
 [![license](https://img.shields.io/static/v1?label=license&message=CC0-1.0&color=lightgrey)](https://github.com/PlayForm/Auth-Cloudflare/blob/Current/LICENSE)
 
@@ -132,8 +132,8 @@ loaded.
 | Signup          | [dash.cloudflare.com/profile/api-tokens](https://dash.cloudflare.com/profile/api-tokens)      |
 | Health check    | disabled - Cloudflare has no `/models` endpoint; token verify is used instead                 |
 | Fixed base URL  | yes - derived from the account ID, the wizard never prompts                                   |
-| Default model   | `@cf/deepseek-ai/deepseek-v4-flash-0731`                                                      |
-| Fallback models | 26 chat models generated from fixtures/plugin_defaults.json by scripts/regenerate-fixtures.py |
+| Default model   | `@cf/deepseek-ai/deepseek-v4.1-flash-1017`                                                      |
+| Fallback models | 31 chat models generated from fixtures/plugin_defaults.json by scripts/regenerate-fixtures.py |
 
 ---
 
@@ -247,7 +247,7 @@ reasoning flags, the documented `reasoning_effort` vocabulary
 through `hermes_cli.config.save_config` (merge_existing) - the same write
 API plugins' `post_setup` uses. Hermes' model-capability resolution
 (`get_model_capabilities`) then reports the real context windows (e.g.
-1,310,720 for deepseek-v4-flash-0731), `supports_tools`/`supports_reasoning`
+1,048,576 for deepseek-v4.1-flash-1017), `supports_tools`/`supports_reasoning`
 and `model_family` for every synced model on both provider paths. Re-run
 after catalog changes; `--dry-run` prints the section without writing.
 

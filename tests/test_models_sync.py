@@ -21,7 +21,7 @@ from helpers import load_plugin
 
 plugin = load_plugin()
 
-FLASH = "@cf/deepseek-ai/deepseek-v4-flash-0731"
+FLASH = "@cf/deepseek-ai/deepseek-v4.1-flash-1017"
 GUARD = "@cf/meta/llama-guard-3-8b"
 QWEN = "@cf/qwen/qwen3.8-27b"
 

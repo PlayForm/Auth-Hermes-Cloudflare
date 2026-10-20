@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-09-22T17:59:48.353540+00:00",
+  "generated_at": "2026-10-20T19:48:25.138152+00:00",
   "source": "cloudflare-workers-ai",
-  "default_model": "@cf/deepseek-ai/deepseek-v4-flash-0731",
+  "default_model": "@cf/deepseek-ai/deepseek-v4.1-flash-1017",
   "model_policy": {
     "@cf/openai/gpt-oss-120b": {
       "status": "available",
@@ -74,79 +74,100 @@
       "primary_agent_eligible": true,
       "reason": "Available on Cloudflare Workers AI."
     },
-    "@cf/zai-org/glm-4.7-flash": {
+    "@cf/cloudflare/clef": {
       "status": "available",
       "rank": 160,
       "default": false,
       "primary_agent_eligible": true,
       "reason": "Available on Cloudflare Workers AI."
     },
-    "@cf/meta/llama-3.3-70b-instruct-fp8-fast": {
+    "@cf/zai-org/glm-4.7-flash": {
       "status": "available",
       "rank": 170,
       "default": false,
       "primary_agent_eligible": true,
       "reason": "Available on Cloudflare Workers AI."
     },
-    "@cf/ibm-granite/granite-4.0-h-micro": {
+    "@cf/meta/llama-3.3-70b-instruct-fp8-fast": {
       "status": "available",
       "rank": 180,
       "default": false,
       "primary_agent_eligible": true,
       "reason": "Available on Cloudflare Workers AI."
     },
-    "@cf/deepseek-ai/deepseek-v4-flash-0731": {
-      "status": "recommended",
-      "rank": 10,
-      "default": true,
-      "primary_agent_eligible": true,
-      "reason": "Validated development default."
-    },
-    "@cf/qwen/qwen2.5-coder-32b-instruct": {
+    "@cf/ibm-granite/granite-4.0-h-micro": {
       "status": "available",
       "rank": 190,
       "default": false,
       "primary_agent_eligible": true,
       "reason": "Available on Cloudflare Workers AI."
     },
-    "@cf/zai-org/glm-5.2": {
+    "@cf/deepseek-ai/deepseek-v4-flash-0731": {
       "status": "available",
       "rank": 200,
       "default": false,
       "primary_agent_eligible": true,
       "reason": "Available on Cloudflare Workers AI."
     },
-    "@cf/nvidia/nemotron-3-120b-a12b": {
+    "@cf/cloudflare/clairic": {
       "status": "available",
       "rank": 210,
       "default": false,
       "primary_agent_eligible": true,
       "reason": "Available on Cloudflare Workers AI."
     },
-    "@cf/aisingapore/gemma-sea-lion-v4-27b-it": {
+    "@cf/cloudflare/clef-omni": {
       "status": "available",
       "rank": 220,
       "default": false,
       "primary_agent_eligible": true,
       "reason": "Available on Cloudflare Workers AI."
     },
-    "@cf/qwen/qwen3-30b-a3b-fp8": {
+    "@cf/qwen/qwen2.5-coder-32b-instruct": {
       "status": "available",
       "rank": 230,
       "default": false,
       "primary_agent_eligible": true,
       "reason": "Available on Cloudflare Workers AI."
     },
-    "@cf/google/gemma-4-26b-a4b-it": {
+    "@cf/zai-org/glm-5.2": {
       "status": "available",
       "rank": 240,
       "default": false,
       "primary_agent_eligible": true,
       "reason": "Available on Cloudflare Workers AI."
     },
-    "@cf/mistralai/mistral-small-3.1-24b-instruct": {
+    "@cf/nvidia/nemotron-3-120b-a12b": {
       "status": "available",
       "rank": 250,
+      "default": false,
+      "primary_agent_eligible": true,
+      "reason": "Available on Cloudflare Workers AI."
+    },
+    "@cf/aisingapore/gemma-sea-lion-v4-27b-it": {
+      "status": "available",
+      "rank": 260,
+      "default": false,
+      "primary_agent_eligible": true,
+      "reason": "Available on Cloudflare Workers AI."
+    },
+    "@cf/qwen/qwen3-30b-a3b-fp8": {
+      "status": "available",
+      "rank": 270,
+      "default": false,
+      "primary_agent_eligible": true,
+      "reason": "Available on Cloudflare Workers AI."
+    },
+    "@cf/google/gemma-4-26b-a4b-it": {
+      "status": "available",
+      "rank": 280,
+      "default": false,
+      "primary_agent_eligible": true,
+      "reason": "Available on Cloudflare Workers AI."
+    },
+    "@cf/mistralai/mistral-small-3.1-24b-instruct": {
+      "status": "available",
+      "rank": 290,
       "default": false,
       "primary_agent_eligible": true,
       "reason": "Available on Cloudflare Workers AI."
@@ -160,42 +181,56 @@
     },
     "@cf/meta/llama-3.2-11b-vision-instruct": {
       "status": "available",
-      "rank": 260,
+      "rank": 300,
       "default": false,
       "primary_agent_eligible": true,
       "reason": "Available on Cloudflare Workers AI."
     },
     "@cf/qwen/qwen3.8-27b": {
       "status": "available",
-      "rank": 270,
+      "rank": 310,
       "default": false,
       "primary_agent_eligible": true,
       "reason": "Available on Cloudflare Workers AI."
     },
+    "@cf/deepseek-ai/deepseek-v4.1-flash-1017": {
+      "status": "recommended",
+      "rank": 10,
+      "default": true,
+      "primary_agent_eligible": true,
+      "reason": "Validated development default."
+    },
     "@cf/openai/gpt-oss-20b": {
       "status": "available",
-      "rank": 280,
+      "rank": 320,
       "default": false,
       "primary_agent_eligible": true,
       "reason": "Available on Cloudflare Workers AI."
     },
     "@cf/meta/llama-4-scout-17b-16e-instruct": {
       "status": "available",
-      "rank": 290,
+      "rank": 330,
+      "default": false,
+      "primary_agent_eligible": true,
+      "reason": "Available on Cloudflare Workers AI."
+    },
+    "@cf/cloudflare/clef-flash": {
+      "status": "available",
+      "rank": 340,
       "default": false,
       "primary_agent_eligible": true,
       "reason": "Available on Cloudflare Workers AI."
     },
     "@cf/qwen/qwq-32b": {
       "status": "available",
-      "rank": 300,
+      "rank": 350,
       "default": false,
       "primary_agent_eligible": true,
       "reason": "Available on Cloudflare Workers AI."
     }
   },
   "primary_agent_models": [
-    "@cf/deepseek-ai/deepseek-v4-flash-0731",
+    "@cf/deepseek-ai/deepseek-v4.1-flash-1017",
     "@cf/deepseek-ai/deepseek-v4-pro-0813",
     "@cf/moonshotai/kimi-k2.7-code",
     "@cf/openai/gpt-oss-120b",
@@ -206,7 +241,7 @@
     "@cf/zai-org/glm-5.3-flash"
   ],
   "fallback_models": [
-    "@cf/deepseek-ai/deepseek-v4-flash-0731",
+    "@cf/deepseek-ai/deepseek-v4.1-flash-1017",
     "@cf/moonshotai/kimi-k2.7-code",
     "@cf/deepseek-ai/deepseek-v4-pro-0813",
     "@cf/openai/gpt-oss-120b",
@@ -215,9 +250,13 @@
     "@cf/meta/llama-3.1-8b-instruct-fp8",
     "@cf/meta/llama-3.2-1b-instruct",
     "@cf/moonshotai/kimi-k2.6",
+    "@cf/cloudflare/clef",
     "@cf/zai-org/glm-4.7-flash",
     "@cf/meta/llama-3.3-70b-instruct-fp8-fast",
     "@cf/ibm-granite/granite-4.0-h-micro",
+    "@cf/deepseek-ai/deepseek-v4-flash-0731",
+    "@cf/cloudflare/clairic",
+    "@cf/cloudflare/clef-omni",
     "@cf/qwen/qwen2.5-coder-32b-instruct",
     "@cf/zai-org/glm-5.2",
     "@cf/nvidia/nemotron-3-120b-a12b",
@@ -229,6 +268,7 @@
     "@cf/qwen/qwen3.8-27b",
     "@cf/openai/gpt-oss-20b",
     "@cf/meta/llama-4-scout-17b-16e-instruct",
+    "@cf/cloudflare/clef-flash",
     "@cf/qwen/qwq-32b",
     "@cf/zai-org/glm-5.3",
     "@cf/zai-org/glm-5.3-flash"

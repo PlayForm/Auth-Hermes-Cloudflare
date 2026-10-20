@@ -80,7 +80,7 @@ ACCOUNT_ENV = "CLOUDFLARE_ACCOUNT_ID"
 # then pre-fills. 'hermes cloudflare setup' writes the account-derived URL
 # here - never the user.
 BASE_URL_ENV = "CLOUDFLARE_BASE_URL"
-DEFAULT_MODEL = "@cf/deepseek-ai/deepseek-v4-flash-0731"
+DEFAULT_MODEL = "@cf/deepseek-ai/deepseek-v4.1-flash-1017"
 
 # Model policy + agent-model lists: GENERATED data from
 # fixtures/plugin_defaults.json, refreshed by scripts/regenerate-fixtures.py
@@ -105,7 +105,7 @@ def _load_generated_defaults() -> tuple[
     back to a minimal built-in set with a warning; import never raises.
     """
     minimal_policy: dict[str, dict[str, object]] = {
-        "@cf/deepseek-ai/deepseek-v4-flash-0731": {
+        "@cf/deepseek-ai/deepseek-v4.1-flash-1017": {
             "status": "recommended",
             "rank": 10,
             "default": True,
@@ -113,7 +113,7 @@ def _load_generated_defaults() -> tuple[
             "reason": "Validated development default.",
         },
     }
-    minimal: tuple[str, ...] = ("@cf/deepseek-ai/deepseek-v4-flash-0731",)
+    minimal: tuple[str, ...] = ("@cf/deepseek-ai/deepseek-v4.1-flash-1017",)
     try:
         path = Path(__file__).resolve().parent / "fixtures" / "plugin_defaults.json"
         data = json.loads(path.read_text(encoding="utf-8"))
@@ -159,7 +159,7 @@ def _load_generated_defaults() -> tuple[
             exc,
         )
         return (
-            "@cf/deepseek-ai/deepseek-v4-flash-0731",
+            "@cf/deepseek-ai/deepseek-v4.1-flash-1017",
             minimal_policy,
             minimal,
             minimal,
@@ -173,17 +173,23 @@ DEFAULT_MODEL, MODEL_POLICY, PRIMARY_AGENT_MODELS, FALLBACK_MODELS = (
 
 # Cloudflare OpenAI-compatible reasoning-effort wire vocabulary. The Workers AI
 # chat-completions schema documents ``reasoning_effort`` as the enum
-# low|medium|high (per-model docs, e.g. deepseek-v4-flash-0731) - narrower than
-# Hermes' internal ladder (none..ultra) and than the generic OpenAI-compat wire
-# set (none..max). build_api_kwargs_extras clamps onto this set; "none" and
-# disabled efforts omit the field entirely (Cloudflare has no "none" level and
-# no ``thinking`` toggle on this surface).
+# low|medium|high (per-model docs, e.g. deepseek-v4-flash-0731); the v4.1
+# default (deepseek-v4.1-flash-1017) documents the wider set none|low|high|max
+# (default high) with aliases (auto→high, minimal→none, medium→high, xhigh→max).
+# The constant stays on the low|medium|high subset that is valid on EVERY
+# plugin model - "medium" maps to high on the v4.1 surface, so it never 400s,
+# and the clamp never escalates cost. build_api_kwargs_extras clamps onto this
+# set; "none" and disabled efforts omit the field entirely (Cloudflare has no
+# "none" level and no ``thinking`` toggle on this surface).
 CLOUDFLARE_REASONING_EFFORTS: tuple[str, ...] = ("low", "medium", "high")
 
-# The plugin's vision-capable model: the only primary-agent-eligible Cloudflare
-# model that accepts image input (llama-3.2-11b vision). default_vision_model()
-# returns it so Hermes' auxiliary vision calls route here instead of the
-# text-only main model (which 400s on image content).
+# The plugin's dedicated vision-capable model for auxiliary vision calls
+# (llama-3.2-11b vision). The v4.1 default model is itself multimodal
+# (natively processes images and text), so auxiliary vision calls would
+# succeed on the main model too; this dedicated id keeps them on a stable,
+# separate surface. default_vision_model() returns it so Hermes' auxiliary
+# vision calls route here instead of a text-only model (which 400s on image
+# content).
 CLOUDFLARE_VISION_MODEL = "@cf/meta/llama-3.2-11b-vision-instruct"
 
 # Executable bridge: the auth-cloudflare CLI owns catalog
@@ -1446,7 +1452,7 @@ def _build_cloudflare_cli_parser(subparser) -> None:
     m = p_model.add_subparsers(dest="model_cmd", metavar="{inspect}")
     p_inspect = m.add_parser("inspect", help="Inspect one model (policy/metadata)")
     p_inspect.add_argument(
-        "model_id", help="model id, e.g. @cf/deepseek-ai/deepseek-v4-flash-0731"
+        "model_id", help="model id, e.g. @cf/deepseek-ai/deepseek-v4.1-flash-1017"
     )
     p_inspect.set_defaults(func=_cloudflare_cli_model_inspect)
 
@@ -1648,7 +1654,7 @@ def validate_setup() -> dict:
 
     Order: (1) account_id present + valid 32-hex shape, (2) api_token
     present (its value is NEVER printed), (3) catalog discovery succeeds,
-    (4) at least one usable chat-agent model, (5) the DeepSeek V4 Flash
+    (4) at least one usable chat-agent model, (5) the DeepSeek V4.1 Flash
     development default is in the catalog, (6) OPTIONAL explicit test
     inference - skipped by default. Validation never performs a paid
     inference request. Returns ``{"overall": "ok"|"warning"|"error",
@@ -1713,7 +1719,7 @@ def validate_setup() -> dict:
         }
     )
 
-    # 5. The development default (DeepSeek V4 Flash) is present.
+    # 5. The development default (DeepSeek V4.1 Flash) is present.
     has_default = DEFAULT_MODEL in (models or [])
     steps.append(
         {
