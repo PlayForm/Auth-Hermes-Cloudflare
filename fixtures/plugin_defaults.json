@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-10-20T19:48:25.138152+00:00",
+  "generated_at": "2026-10-21T23:33:58.771886+00:00",
   "source": "cloudflare-workers-ai",
   "default_model": "@cf/deepseek-ai/deepseek-v4.1-flash-1017",
   "model_policy": {
@@ -231,6 +231,7 @@
   },
   "primary_agent_models": [
     "@cf/deepseek-ai/deepseek-v4.1-flash-1017",
+    "@cf/deepseek-ai/deepseek-v4-flash-0731",
     "@cf/deepseek-ai/deepseek-v4-pro-0813",
     "@cf/moonshotai/kimi-k2.7-code",
     "@cf/openai/gpt-oss-120b",
