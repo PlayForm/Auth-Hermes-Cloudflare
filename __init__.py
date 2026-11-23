@@ -242,8 +242,9 @@ BINARY_VERSION = _read_binary_version()
 
 # FALLBACK_MODELS: the generated non-hidden chat-model list from
 # fixtures/plugin_defaults.json (default first, then recommended, available,
-# experimental; safety/classifier models like llama-guard-3-8b excluded) -
-# loaded at the top of this module by _load_generated_defaults().
+# experimental, and last the deprecated ids Cloudflare delisted; safety/
+# classifier models like llama-guard-3-8b excluded) - loaded at the top of
+# this module by _load_generated_defaults().
 
 # Non-chat modalities + safety classifiers filtered from the primary picker.
 _NON_CHAT_FRAGMENTS = (
@@ -266,9 +267,14 @@ _NON_CHAT_FRAGMENTS = (
 )
 
 # MODEL_POLICY status priority for ordering: recommended < available <
-# experimental; models without a policy entry sort after every
+# experimental < deprecated; models without a policy entry sort after every
 # policy-classified model ("the rest").
-_STATUS_PRIORITY = {"recommended": 0, "available": 1, "experimental": 2}
+_STATUS_PRIORITY = {
+    "recommended": 0,
+    "available": 1,
+    "experimental": 2,
+    "deprecated": 4,
+}
 
 
 def _policy_sort_key(mid: str, index: int) -> tuple[int, int, int]:
