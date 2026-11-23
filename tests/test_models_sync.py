@@ -137,5 +137,62 @@ class ModelsSyncRouterTest(unittest.TestCase):
         self.assertEqual(result["status"], "error")
 
 
+class ModelsSyncWriteTest(unittest.TestCase):
+    """The skip-vs-write decision in ``cloudflare_models_sync``.
+
+    A shallow ``{**existing}`` merge shares the per-provider dicts, so the
+    update mutates ``existing`` as well and the two always compare equal: the
+    write was skipped even when the catalog had genuinely new models. These
+    tests pin both branches against a stubbed config module.
+    """
+
+    RECORDS = [
+        {"id": FLASH, "context_window": 1048576, "tool_call": True},
+        {"id": "@cf/thinkingmachines/inkling-2-small", "context_window": 1048576},
+    ]
+
+    def _sync(self, existing):
+        import hermes_cli.config as hermes_config
+        from unittest import mock
+
+        data = {"source": "cache", "cache_status": "fresh", "models": self.RECORDS}
+        with (
+            mock.patch.object(plugin, "_locate_usable_binary", return_value=("/bin/true", None)),
+            mock.patch.object(plugin, "_run_binary_json", return_value=(data, None, 0)),
+            mock.patch.object(
+                hermes_config,
+                "load_config_readonly",
+                return_value={"model_overrides": existing},
+            ),
+            mock.patch.object(hermes_config, "save_config") as save,
+        ):
+            result = plugin.cloudflare_models_sync()
+        return result, save
+
+    def test_new_model_is_written_when_the_config_lacks_it(self):
+        existing = {"auth-cloudflare-workers-ai": {FLASH: {"context_window": 1048576}}}
+        result, save = self._sync(existing)
+        self.assertEqual(result["status"], "ok")
+        self.assertNotIn("unchanged", result)
+        save.assert_called_once()
+        payload = save.call_args.args[0]["model_overrides"]
+        self.assertIn(
+            "@cf/thinkingmachines/inkling-2-small",
+            payload["auth-cloudflare-workers-ai"],
+        )
+        # The stub's dict must not have been mutated by the comparison.
+        self.assertNotIn(
+            "@cf/thinkingmachines/inkling-2-small",
+            existing["auth-cloudflare-workers-ai"],
+        )
+
+    def test_write_is_skipped_when_the_config_already_matches(self):
+        existing = plugin._model_overrides_from_records(self.RECORDS)
+        result, save = self._sync(existing)
+        self.assertEqual(result["status"], "ok")
+        self.assertTrue(result.get("unchanged"))
+        save.assert_not_called()
+
+
 if __name__ == "__main__":
     unittest.main()
