@@ -60,6 +60,7 @@ which reads ``PluginManager._cli_commands`` after ``discover_plugins()``).
 
 from __future__ import annotations
 
+import copy
 import json
 import os
 import re
@@ -955,10 +956,13 @@ def cloudflare_models_sync(
         }
     # Skip the write when the config already carries these exact overrides
     # (session-start self-heal would otherwise rewrite config.yaml every turn).
+    # The comparison MUST work on a deep copy: a shallow `{**existing}` shares
+    # the per-provider dicts, so `.update()` mutates `existing` too and the
+    # two always compare equal - which silently skipped every real update.
     try:
         existing_raw = load_config_readonly().get("model_overrides") or {}
         existing = existing_raw if isinstance(existing_raw, dict) else {}
-        merged: dict[str, dict] = {**existing}
+        merged: dict[str, dict] = copy.deepcopy(existing)
         for provider, models in overrides.items():
             merged.setdefault(provider, {}).update(models)
         if merged == existing:
